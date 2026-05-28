@@ -27,9 +27,9 @@ A user runs `opennarrator convert book.epub --voice my-voice` and gets a chapter
 |-------|-----------|---------|-----------|
 | **Language** | Python | 3.12+ | Best ML/TTS ecosystem. Every major open-source TTS engine has Python bindings. |
 | **CLI Framework** | Typer + Rich | latest | Fast CLI building, beautiful progress bars and live displays. |
-| **TTS Engine (Primary)** | F5-TTS | latest | MIT license, state-of-the-art voice cloning, best open quality as of 2026. |
-| **TTS Engine (Fallback)** | Piper | latest | CPU-friendly, 50+ pre-trained voices, fast enough for real-time preview. |
-| **TTS Engine (Alt)** | Kokoro | latest | Apache 2.0, emerging quality contender with small model size. |
+| **TTS Engine (v0.1)** | Piper | latest | CPU-friendly, 50+ pre-trained voices, validates pipeline fast. RTF 0.1-0.2x on Pi 5 (spike validated). |
+| **TTS Engine (v0.1 Alt)** | Kokoro | latest | Apache 2.0, reportedly more natural than Piper. Testing in progress. |
+| **TTS Engine (v0.2)** | F5-TTS | latest | MIT license, state-of-the-art voice cloning, best open quality. GPU may be required (validate on A18 Pro). |
 | **Audio Processing** | ffmpeg (subprocess) | system | Industry standard. M4B packaging, normalization, silence trimming, chapter markers. |
 | **EPUB Parsing** | ebooklib | latest | Pure Python EPUB2/EPUB3 reader with TOC + spine extraction. |
 | **PDF Parsing** | pymupdf (fitz) | latest | Fastest Python PDF text extraction with layout preservation. |
@@ -254,6 +254,142 @@ class SynthesizerConfig(BaseModel):
 - Integration tests may use Piper on CPU (fast enough) but never F5-TTS (needs GPU).
 - `conftest.py` provides shared fixtures: `tmp_workspace`, `sample_epub`, `sample_voice`.
 
+### Voice Quality Testing
+
+Voice quality is the **#1 risk** for OpenNarrator. Automated tests verify technical correctness, but only human listening tests verify that the output is suitable for long-form listening (5+ hours).
+
+#### Quality Gate Test (Manual, Required for v0.1)
+
+**When:** Before committing to any TTS engine for v0.1 (Phase 0, Task 0.4)
+
+**Methodology:**
+1. Synthesize a 5-minute sample from a real book chapter (e.g., first chapter of Project Gutenberg's "Pride and Prejudice")
+2. Recruit 2+ testers (developers, friends, family — anyone who listens to audiobooks)
+3. Each tester listens to the full 5-minute sample
+4. Answer one question: **"Would you listen to a 10-hour audiobook narrated in this voice?"** (Yes/No)
+5. **Pass threshold:** ≥50% of testers say "Yes"
+
+**Test Script:**
+```bash
+# Generate 5-minute sample
+opennarrator preview pride_and_prejudice.epub --chapter 1 --voice <engine-voice> --output sample.wav
+
+# Testers listen (headphones recommended)
+# Answer: Would you listen to a 10-hour book in this voice? (Yes/No)
+
+# Record results in tests/voice_quality/results/<engine>-<date>.md
+```
+
+**Why 5 minutes?** Long enough to detect robotic patterns, short enough that testers will actually complete it. 10+ minutes causes fatigue and reduces participation.
+
+**Why ≥50% threshold?** Voice quality is subjective. If half the testers would listen for 10 hours, the voice is "good enough" for a significant audience. We're not competing with professional narrators — we're competing with no audiobook at all.
+
+#### MOS (Mean Opinion Score) Testing (Optional, More Rigorous)
+
+**When:** After quality gate passes, to compare engines objectively
+
+**Methodology:**
+1. Synthesize 10 samples (different sentences, varying length and complexity)
+2. Recruit 5+ testers
+3. Each tester rates each sample on a 1-5 scale:
+   - **5 = Excellent** (professional narrator quality)
+   - **4 = Good** (natural, pleasant, would listen for hours)
+   - **3 = Fair** (acceptable, but robotic or unnatural in places)
+   - **2 = Poor** (unpleasant, would not listen for more than a few minutes)
+   - **1 = Bad** (unintelligible or extremely robotic)
+4. Calculate average score across all testers and samples
+5. **Target:** MOS ≥ 3.5 (between "Fair" and "Good")
+
+**Test Script:**
+```bash
+# Generate 10 samples
+python tests/voice_quality/generate_mos_samples.py --voice <engine-voice> --output samples/
+
+# Testers rate each sample (web form or spreadsheet)
+# Calculate MOS in tests/voice_quality/calculate_mos.py
+```
+
+**Why MOS?** Provides a quantitative metric for comparing engines. Useful for tracking quality improvements over time (e.g., when Kokoro releases a better model).
+
+#### A/B Testing (Comparing Engines)
+
+**When:** Choosing between two engines (e.g., Piper `libritts` vs Kokoro)
+
+**Methodology:**
+1. Synthesize the same 5-minute sample with both engines
+2. Recruit 3+ testers
+3. Each tester listens to both samples (randomized order to avoid bias)
+4. Answer: **"Which voice would you prefer for a 10-hour audiobook?"** (A/B/No preference)
+5. **Decision:** Choose the engine with ≥60% preference (or "No preference" if tied)
+
+**Why A/B testing?** Removes absolute quality judgments ("Is this good enough?") and focuses on relative preference ("Which is better?"). More actionable for engine selection.
+
+#### Performance Benchmarks (RTF Measurement)
+
+**When:** After engine selection, to validate throughput
+
+**Methodology:**
+1. Synthesize a 10-minute sample (real book chapter)
+2. Measure wall-clock time and audio duration
+3. Calculate RTF (Real-Time Factor) = synthesis time / audio duration
+4. **Target:** RTF < 0.5x (2x faster than real-time)
+
+**Test Script:**
+```python
+# tests/voice_quality/benchmark_rtf.py
+import time
+from pathlib import Path
+from opennarrator.engines import load_engine
+
+engine = load_engine("piper")
+voice = engine.get_voice("en_US-libritts")
+
+text = Path("tests/fixtures/chapter_1.txt").read_text()
+start = time.perf_counter()
+engine.synthesize(text, voice, output_path="benchmark.wav")
+elapsed = time.perf_counter() - start
+
+# Get audio duration
+import wave
+with wave.open("benchmark.wav", "rb") as wf:
+    audio_duration = wf.getnframes() / wf.getframerate()
+
+rtf = elapsed / audio_duration
+print(f"RTF: {rtf:.2f}x (target: < 0.5x)")
+assert rtf < 0.5, f"RTF {rtf:.2f}x exceeds target"
+```
+
+**Why RTF < 0.5x?** A 10-hour audiobook should process in <5 hours. Slower than this makes batch conversion impractical (e.g., converting a library of 100 books).
+
+#### Regression Tests (Automated)
+
+**When:** After every engine update or model change
+
+**Methodology:**
+1. Maintain a "golden" set of 5 reference audio samples (known-good quality)
+2. After engine update, synthesize the same samples with new engine version
+3. Compare audio characteristics (not byte-for-byte, but perceptual similarity)
+4. **Pass threshold:** Perceptual similarity > 80% (use PESQ or ViSQOL metrics)
+
+**Why regression tests?** TTS engines update frequently. A new model version might be faster but sound worse. Regression tests catch quality degradation before it ships.
+
+**Tools:**
+- **PESQ** (Perceptual Evaluation of Speech Quality): ITU-T standard, requires license
+- **ViSQOL** (Virtual Speech Quality Objective Listener): Google's open-source alternative
+- **Simple approach:** Hash the audio waveform and alert if it changes significantly (crude but effective)
+
+#### Voice Quality Test Fixtures
+
+**Location:** `tests/voice_quality/fixtures/`
+
+**Contents:**
+- `pride_and_prejudice_ch1.txt` — First chapter of Jane Austen's "Pride and Prejudice" (public domain, ~2,500 words, 5-minute sample)
+- `technical_text.txt` — Paragraph with numbers, abbreviations, and special characters (tests normalization)
+- `dialogue.txt` — Conversation with quotes and em-dashes (tests prosody)
+- `golden_samples/` — Reference audio files for regression testing (one per supported voice)
+
+**Why these fixtures?** Cover the range of text types users will encounter: narrative prose, technical content, and dialogue. If the voice sounds good on all three, it's likely good enough for real books.
+
 ---
 
 ## Boundaries
@@ -313,7 +449,18 @@ class SynthesizerConfig(BaseModel):
 
 **What:** Voice cloning is supported exclusively through F5-TTS (the only open-source engine with reliable cloning as of 2026).
 **Why:** Piper and Kokoro are multi-speaker but don't do cloning. XTTSv2 does but has licensing restrictions. F5-TTS is MIT-licensed and produces the best clones.
-**Trade-off:** Voice cloning requires a GPU. CPU users get pre-trained voices only.
+**Trade-off:** Voice cloning may require a GPU. CPU users get pre-trained voices only. **Risk:** F5-TTS CPU performance on MacBook Neo (A18 Pro, no MPS) is unvalidated — test early.
+
+### Decision 6: Voice quality gate before v0.1 ship
+
+**What:** Before committing to Piper (or any v0.1 engine), conduct a voice quality gate with explicit go/no-go criteria.
+**Why:** Voice quality is the #1 risk. If the voice sounds robotic or unpleasant, users won't listen for hours, and the entire value proposition fails. We learned from Spike 001 that Piper's `en_US-lessac` voice sounds robotic even with tuning.
+**How:**
+1. Test `en_US-libritts` voice (trained on audiobook data, may sound more natural)
+2. Test Kokoro on MacBook Neo (Apache 2.0, reportedly more natural)
+3. If both fail quality gate → accept F5-TTS GPU requirement or pivot value proposition
+4. Quality gate: 2+ testers listen to 5-minute sample, answer "Would you listen to a 10-hour book in this voice?" (yes/no)
+**Trade-off:** Delays v0.1 by 1-2 weeks for voice testing. But shipping with bad voice quality is worse than delaying.
 
 ---
 
@@ -354,24 +501,66 @@ Input File (EPUB/PDF/TXT)
 
 1. **Core conversion:** `opennarrator convert book.epub --voice default` produces a playable M4B file with correct chapter markers.
 2. **Voice consistency:** A single voice is used consistently across all chapters (no voice drift).
-3. **Three input formats:** EPUB, PDF, and TXT all produce usable output.
-4. **Error recovery:** If synthesis fails on chapter 7 of 20, re-running the command skips chapters 1-6 and resumes from chapter 7.
-5. **GPU and CPU support:** Runs on machines with and without NVIDIA GPUs. GPU gets F5-TTS quality. CPU gets Piper quality.
-6. **Voice cloning:** A 30-second voice sample produces a recognizable voice clone usable for full book narration.
-7. **CLI UX:** Progress bars, ETA, and clear error messages. No silent failures.
-8. **Documentation:** README with quickstart, voice cloning guide, engine comparison, and FAQ.
-9. **Test coverage:** ≥ 80% on pipeline modules.
-10. **Single-command install:** `pip install opennarrator` followed by `opennarrator voices download` gets a working setup in under 5 minutes.
+3. **Voice quality:** Generated audio is suitable for long-form listening (5+ hours). Measured via MOS (Mean Opinion Score) ≥ 3.5/5.0 on a 10-sample listening test, or subjective "would listen to a full book" assessment by 2+ testers.
+4. **Three input formats:** EPUB, PDF, and TXT all produce usable output.
+5. **Error recovery:** If synthesis fails on chapter 7 of 20, re-running the command skips chapters 1-6 and resumes from chapter 7.
+6. **CPU-only support:** Runs on machines without NVIDIA GPUs (MacBook Neo A18 Pro, Raspberry Pi 5). RTF < 0.5x for acceptable throughput.
+7. **Voice cloning (v0.2):** A 30-second voice sample produces a recognizable voice clone usable for full book narration.
+8. **CLI UX:** Progress bars, ETA, and clear error messages. No silent failures.
+9. **Documentation:** README with quickstart, voice quality guide, engine comparison, and FAQ.
+10. **Test coverage:** ≥ 80% on pipeline modules.
+11. **Single-command install:** `pip install opennarrator` followed by `opennarrator voices download` gets a working setup in under 5 minutes.
 
 ---
 
 ## Open Questions
 
-1. **Name: OpenNarrator?** Alternatives: AudiobookForge, LibroVox (taken?), OpenAudiobook, VoxForge. Settle before first commit.
-2. **First TTS engine to implement:** F5-TTS for quality, or Piper for speed + CPU support? Recommendation: Piper first (fast, works everywhere, validates the pipeline), then F5-TTS for quality.
-3. **Minimum voice sample length for cloning:** 30 seconds? 60 seconds? F5-TTS papers suggest 15-30s is viable but longer = better. Need to experiment.
-4. **Distribution strategy:** PyPI package only, or also a single binary (PyInstaller/Nuitka) for non-technical users? The binary would bundle Python + ffmpeg.
-5. **Commercial use:** MIT license allows it. Is the goal purely open-source, or a future commercial offering (hosted API, premium voices)?
-6. **Mac vs. Linux vs. Windows:** Which OS first? You're on Mac. Priority should be macOS + Linux. Windows support can follow.
-7. **Cover art extraction:** Should we extract cover art from EPUB and embed it in the M4B? Low effort, high polish.
-8. **SSML support:** Do we generate SSML (pauses, emphasis) from punctuation/prose, or feed raw text to the TTS engine? Raw text is simpler. SSML could improve quality for specific engines that support it.
+*All questions resolved as of 2026-05-27. See Decisions Made below.*
+
+---
+
+## Decisions Made
+
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| **Name** | **OpenNarrator** | Clear, descriptive, available |
+| **First TTS engine** | **Piper** (v0.1), then **F5-TTS** (v0.2) | Piper validates pipeline fast on CPU. F5-TTS adds quality + cloning later. **Voice quality gate required before v0.1 ship.** |
+| **Voice sample length** | **30 seconds minimum** for cloning | F5-TTS papers show 15-30s viable. Longer = better quality. |
+| **Distribution** | **pip install** for v0.1, `.app` bundle in v0.3 | Ship fast with pip. Bundle Python + ffmpeg for non-technical users later. |
+| **Commercial intent** | **Pure open-source** (MIT) | No commercial offering planned. Revisit if traction justifies hosted API. |
+| **Target OS** | **macOS first**, then Linux, then Windows | Primary dev machine is Mac. Linux similar. Windows follows. |
+| **Cover art** | **Yes** — extract from EPUB, embed in M4B | Low effort, high polish. Users expect it. |
+| **SSML support** | **Not in v0.1** — raw text only | Simpler. Add SSML in v0.2 if engines support it and quality improves. |
+
+---
+
+## Voice Quality Requirements
+
+Voice quality is the **critical success factor** for OpenNarrator. Users will listen for hours — if the voice is robotic, unpleasant, or fatiguing, the tool fails regardless of technical correctness.
+
+### Quality Gate Criteria
+
+Before shipping v0.1, the chosen TTS engine must pass:
+
+1. **Listening test:** 2+ testers listen to a 5-minute sample (1 chapter from a real book)
+2. **Question:** "Would you listen to a 10-hour audiobook narrated in this voice?" (Yes/No)
+3. **Pass threshold:** ≥ 50% of testers say "Yes"
+4. **Alternative:** MOS (Mean Opinion Score) ≥ 3.5/5.0 on a 10-sample test (more rigorous, but requires more testers)
+
+### Voice Candidates (v0.1)
+
+| Voice | Engine | Status | Quality Notes |
+|-------|--------|--------|---------------|
+| `en_US-lessac` | Piper | ❌ Failed quality gate | Sounds robotic even with `length_scale`/`noise_scale` tuning |
+| `en_US-libritts` | Piper | 🔄 Untested | Trained on LibriTTS audiobook data — may sound more natural |
+| Kokoro default | Kokoro | 🔄 Testing | Apache 2.0, reportedly more natural than Piper. Blocked on Pi (Python 3.13), testing on MacBook Neo. |
+
+### If Quality Gate Fails
+
+If neither Piper `libritts` nor Kokoro passes the quality gate:
+
+1. **Option A:** Accept F5-TTS as v0.1 engine (may require GPU, validate CPU performance on A18 Pro)
+2. **Option B:** Pivot value proposition — position as "fast preview generation" not "audiobook production"
+3. **Option C:** Defer v0.1 until a better CPU-friendly engine emerges (Kokoro improvements, new engines)
+
+**Recommendation:** Test `libritts` and Kokoro first. If both fail, accept F5-TTS GPU requirement and document it clearly.

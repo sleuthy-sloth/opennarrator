@@ -2,13 +2,13 @@
 
 **Spec:** `docs/SPEC.md`
 **Target:** macOS-first CLI that converts EPUB/TXT → M4B using Piper TTS
-**Status:** Ready for implementation
+**Status:** Phase 0 in progress — libritts tested, awaiting quality gate decision
 
 ---
 
 ## Overview
 
-Build the core audiobook pipeline with Piper as the first TTS engine. The goal is a working `opennarrator convert book.epub --voice en_US-lessac` command that produces a playable M4B file with chapter markers. No GPU required. No voice cloning yet. Just the pipeline working end-to-end.
+Build the core audiobook pipeline with a **quality-validated TTS engine** (Piper, Kokoro, or F5-TTS — see Phase 0). The goal is a working `opennarrator convert book.epub --voice <engine-specific>` command that produces a playable M4B file with chapter markers **and voice quality suitable for long-form listening**. No GPU required (unless F5-TTS is chosen). No voice cloning yet. Just the pipeline working end-to-end with acceptable voice quality.
 
 ---
 
@@ -24,6 +24,73 @@ Build the core audiobook pipeline with Piper as the first TTS engine. The goal i
 
 ## Phased Implementation
 
+### Phase 0: Engine Selection & Voice Quality Gate (CRITICAL)
+
+**Goal:** Resolve the voice quality question before committing to implementation. This is the #1 risk — if we ship with robotic-sounding voices, the tool fails regardless of technical quality.
+
+**Status:** IN PROGRESS (Task 0.1 complete, awaiting quality gate assessment)
+
+- [x] Task 0.1: Test Piper `en_US-libritts` voice ✅
+  - **What:** Download and test the `en_US-libritts` voice (trained on LibriTTS audiobook data)
+  - **Why:** `lessac` failed quality gate (robotic). `libritts` may sound more natural.
+  - **How:**
+    ```bash
+    hf download rhasspy/piper-voices --include "en/en_US/libritts/*.onnx"
+    # Synthesize 5-minute sample from a real book chapter
+    # 2+ testers listen and answer: "Would you listen to a 10-hour book in this voice?"
+    ```
+  - **Acceptance:** ≥ 50% of testers say "Yes" → Piper validated. Otherwise → proceed to Task 0.2.
+  - **Files:** `spikes/001-piper-feasibility/spike3_libritts.py`
+  
+  **Results (2026-05-27):**
+  - **Model:** `en_US-libritts-high` (137 MB)
+  - **RTF:** 0.48x on Apple Silicon arm64 (2x faster than real-time)
+  - **Load time:** 0.3-0.4s
+  - **Projection:** 10-hour book in ~4.8 hours
+  - **Sample:** `spikes/001-piper-feasibility/output-libritts/libritts_quality_test.wav` (2.1 min, 5.3 MB)
+  - **Quality gate:** AWAITING ASSESSMENT — user must listen and answer: "Would you listen to a 10-hour book in this voice?"
+
+- [ ] Task 0.2: Test Kokoro on MacBook Neo
+  - **What:** Set up Kokoro TTS on MacBook Neo (Python 3.12, no 3.13 incompatibility)
+  - **Why:** Kokoro (Apache 2.0) reportedly sounds more natural than Piper. Blocked on Pi (Python 3.13), but should work on Mac.
+  - **How:**
+    ```bash
+    cd spikes/002-kokoro-feasibility
+    python3 -m venv .venv && source .venv/bin/activate
+    pip install kokoro soundfile torch
+    # Synthesize same 5-minute sample
+    # Same listening test as Task 0.1
+    ```
+  - **Acceptance:** ≥ 50% of testers say "Yes" → Kokoro becomes v0.1 engine. Otherwise → proceed to Task 0.3.
+  - **Files:** `spikes/002-kokoro-feasibility/README.md`, `spike.py`
+
+- [ ] Task 0.3: Validate F5-TTS CPU performance on MacBook Neo
+  - **What:** Test if F5-TTS runs acceptably on A18 Pro CPU (no MPS GPU)
+  - **Why:** If Piper and Kokoro both fail quality gate, F5-TTS is the fallback. But it may require GPU.
+  - **How:**
+    ```bash
+    pip install f5-tts
+    # Synthesize 1-minute sample, measure RTF
+    # RTF < 0.5x = acceptable, RTF > 1.0x = too slow
+    ```
+  - **Acceptance:** RTF < 0.5x → F5-TTS viable on CPU. Otherwise → pivot or defer.
+  - **Files:** `spikes/003-f5-tts-cpu-performance/README.md`
+
+- [ ] Task 0.4: Make final engine decision
+  - **Decision tree:**
+    - Piper `libritts` passes quality gate → **Piper is v0.1 engine**
+    - Kokoro passes quality gate → **Kokoro is v0.1 engine**
+    - F5-TTS CPU performance acceptable → **F5-TTS is v0.1 engine (document GPU recommendation)**
+    - All fail → **Pivot value proposition** (fast preview generation, not audiobook production) or **defer v0.1**
+  - **Deliverable:** Update SPEC.md and IMPLEMENTATION_PLAN.md with final engine choice
+
+**Checkpoint: Engine Selected**
+- [ ] Voice quality gate passed (2+ testers approve)
+- [ ] Engine choice documented in SPEC.md
+- [ ] Ready to proceed to Phase 1
+
+---
+
 ### Phase 1: Skeleton & Pipeline Contracts (Foundation)
 
 **Goal:** Project scaffolding, abstract interfaces, and a "null" engine that outputs silence. Validates the pipeline architecture without any real TTS dependency.
@@ -32,6 +99,142 @@ Build the core audiobook pipeline with Piper as the first TTS engine. The goal i
   - Acceptance: `pyproject.toml`, `src/opennarrator/`, `tests/`, venv setup. `pip install -e ".[dev]"` works. Ruff + mypy configured.
   - Verify: `ruff check src/ && mypy src/ && pytest` all pass (0 tests initially)
   - Files: `pyproject.toml`, `src/opennarrator/__init__.py`, `src/opennarrator/__main__.py`, `.gitignore`
+  
+  **pyproject.toml Requirements:**
+  ```toml
+  [build-system]
+  requires = ["hatchling"]
+  build-backend = "hatchling.build"
+
+  [project]
+  name = "opennarrator"
+  version = "0.1.0"
+  description = "Open-source audiobook creator — convert ebooks to M4B using open-source TTS engines"
+  readme = "README.md"
+  requires-python = ">=3.12"
+  license = {text = "MIT"}
+  authors = [
+    {name = "Sleuthy-Sloth", email = "your-email@example.com"}
+  ]
+  dependencies = [
+    "typer[all]>=0.12.0",           # CLI framework with Rich integration
+    "rich>=13.7.0",                 # Beautiful terminal output
+    "pydantic>=2.6.0",              # Config validation and type safety
+    "pydantic-settings>=2.1.0",     # Settings management from env/files
+    "ebooklib>=0.18",               # EPUB parsing
+    "pymupdf>=1.24.0",              # PDF parsing (fitz)
+    "huggingface-hub>=0.22.0",      # Voice model downloads
+  ]
+
+  [project.optional-dependencies]
+  dev = [
+    "pytest>=8.1.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "types-setuptools",             # Type stubs
+  ]
+  piper = [
+    "piper-tts>=1.2.0",             # Piper TTS engine (optional, install separately)
+  ]
+
+  [project.scripts]
+  opennarrator = "opennarrator.cli.main:app"
+
+  [tool.hatch.build.targets.wheel]
+  packages = ["src/opennarrator"]
+
+  [tool.ruff]
+  line-length = 100
+  target-version = "py312"
+  select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+  ]
+  ignore = [
+    "E501",   # Line too long (handled by formatter)
+  ]
+
+  [tool.ruff.format]
+  quote-style = "double"
+  indent-style = "space"
+
+  [tool.mypy]
+  python_version = "3.12"
+  strict = true
+  warn_return_any = true
+  warn_unused_configs = true
+  disallow_untyped_defs = true
+  disallow_incomplete_defs = true
+  check_untyped_defs = true
+  no_implicit_optional = true
+  warn_redundant_casts = true
+  warn_unused_ignores = true
+  warn_no_return = true
+  strict_equality = true
+
+  [[tool.mypy.overrides]]
+  module = ["ebooklib.*", "pymupdf.*"]
+  ignore_missing_imports = true
+
+  [tool.pytest.ini_options]
+  testpaths = ["tests"]
+  python_files = ["test_*.py"]
+  python_classes = ["Test*"]
+  python_functions = ["test_*"]
+  addopts = "-v --tb=short"
+  markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external dependencies",
+  ]
+  ```
+  
+  **Directory Structure:**
+  ```
+  opennarrator/
+  ├── src/
+  │   └── opennarrator/
+  │       ├── __init__.py          # Package version: __version__ = "0.1.0"
+  │       ├── __main__.py          # Entry point: from opennarrator.cli.main import app; app()
+  │       ├── cli/                 # Typer CLI commands
+  │       ├── pipeline/            # Extractor, synthesizer, packager
+  │       ├── engines/             # TTS engine adapters
+  │       ├── audio/               # ffmpeg wrapper, normalization
+  │       └── voice/               # Voice manager, registry
+  ├── tests/
+  │   ├── unit/
+  │   ├── integration/
+  │   ├── smoke/
+  │   ├── voice_quality/           # Listening tests, MOS, benchmarks
+  │   ├── fixtures/
+  │   └── conftest.py
+  ├── docs/
+  ├── spikes/
+  ├── pyproject.toml
+  ├── README.md
+  ├── LICENSE
+  └── .gitignore
+  ```
+  
+  **Setup Commands:**
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  pip install -e ".[dev]"
+  
+  # Verify setup
+  ruff check src/          # Should pass (0 errors)
+  mypy src/                # Should pass (0 errors)
+  pytest                   # Should pass (0 tests, no failures)
+  opennarrator --help      # Should show CLI help (empty, but works)
+  ```
 
 - [ ] Task 2: Core types and exceptions
   - Acceptance: `Chapter`, `BookMetadata`, `Voice`, `ConversionJob` types defined. Exception hierarchy: `OpenNarratorError`, `ExtractionError`, `SynthesisError`, `PackagingError`.
@@ -168,13 +371,52 @@ Build the core audiobook pipeline with Piper as the first TTS engine. The goal i
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Piper subprocess interface changes | Medium — breaks engine adapter | Pin Piper version in docs. Engine adapter catches subprocess errors with useful messages. |
-| ffmpeg not installed by default on macOS | High — blocks M4B output | Detect at CLI startup, show `brew install ffmpeg` guidance. Consider bundling ffmpeg in future binary distribution. |
-| EPUB structure varies wildly between publishers | Medium — extraction misses chapters | Start with well-structured EPUBs. Add fallback regex chapter detection from TXT extractor. |
-| Voice consistency across long texts | Low for Piper (single-speaker models) | Piper voices are deterministic per-model. Not a concern until F5-TTS voice cloning phase. |
-| Large books exhaust disk space (WAV intermediates) | Low — 1GB for a long book | Warn if disk space < 2x estimated output size. Clean up WAVs on successful M4B creation. |
+### Critical Risks (Block v0.1)
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
+| **Voice quality fails quality gate** | **BLOCKER** — tool unusable for long-form listening | **HIGH** (Piper `lessac` already failed) | Test `en_US-libritts` (audiobook-trained). If fails → test Kokoro. If both fail → accept F5-TTS GPU requirement or pivot value proposition. See Phase 0. |
+| **MacBook Neo has no MPS GPU** | **HIGH** — F5-TTS may be too slow on CPU | **MEDIUM** (untested) | Validate F5-TTS CPU performance early (Task 0.3). RTF < 0.5x = acceptable. If too slow → document GPU requirement clearly or defer F5-TTS to v0.2. |
+| **Kokoro blocked on Python 3.13** | **MEDIUM** — can't test on Pi 5 | **CONFIRMED** (misaki dependency incompatible) | Test on MacBook Neo (likely Python 3.12). If MacBook Neo also has 3.13 → use pyenv to install 3.12. |
+
+### Technical Risks (Manageable)
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
+| Piper subprocess interface changes | Medium — breaks engine adapter | Low | Pin Piper version in `pyproject.toml`. Engine adapter catches subprocess errors with useful messages. Add integration test that runs real Piper. |
+| ffmpeg not installed by default on macOS | High — blocks M4B output | High | Detect at CLI startup, show `brew install ffmpeg` guidance with exact command. Consider bundling ffmpeg in future binary distribution (v0.3). |
+| EPUB structure varies wildly between publishers | Medium — extraction misses chapters | High | Start with well-structured EPUBs (Project Gutenberg). Add fallback regex chapter detection from TXT extractor. Log warnings when TOC is missing. |
+| Voice consistency across long texts | Low for Piper (single-speaker models) | Low | Piper voices are deterministic per-model. Not a concern until F5-TTS voice cloning phase. Monitor for voice drift in 10+ hour books. |
+| Large books exhaust disk space (WAV intermediates) | Low — 1GB for a long book | Medium | Warn if disk space < 2x estimated output size. Clean up WAVs on successful M4B creation. Add `--keep-wavs` flag for debugging. |
+
+### Strategic Risks (Product-Market Fit)
+
+| Risk | Impact | Likelihood | Mitigation |
+|------|--------|------------|------------|
+| **Voice quality never reaches "good enough"** | **BLOCKER** — entire value proposition fails | **MEDIUM** (Piper `lessac` failed, `libritts` and Kokoro untested) | Define "good enough" explicitly (quality gate). If no CPU-friendly engine passes → pivot to "fast preview generation" or accept GPU requirement. |
+| **Users expect ElevenLabs quality** | High — negative reviews, low adoption | High | Set expectations clearly in README: "Open-source TTS quality, not ElevenLabs quality." Emphasize cost savings and privacy. Position as "good enough for most use cases." |
+| **TTS engine landscape changes fast** | Medium — chosen engine becomes obsolete | Medium | Pluggable architecture (BaseTTSEngine) makes swapping engines a one-file change. Monitor new engines quarterly. |
+
+### Risk Response Plan
+
+**If voice quality gate fails for all CPU-friendly engines:**
+
+1. **Option A: Accept GPU requirement**
+   - Document clearly: "F5-TTS requires NVIDIA GPU (CUDA) for acceptable performance"
+   - Provide cloud GPU option (user provides API key for remote inference)
+   - Target audience: users with gaming PCs or cloud access
+
+2. **Option B: Pivot value proposition**
+   - Position as "fast preview generation" not "audiobook production"
+   - Use case: "Preview a book before buying the professional audiobook"
+   - Lower quality expectations, faster iteration
+
+3. **Option C: Defer v0.1**
+   - Wait for better CPU-friendly engines (Kokoro improvements, new models)
+   - Monitor TTS research for breakthroughs
+   - Risk: lose momentum, competitors ship first
+
+**Recommendation:** Test `libritts` and Kokoro first. If both fail → Option A (accept GPU requirement) with clear documentation.
 
 ---
 

@@ -60,19 +60,24 @@ v0.1.0 (current)          v0.2.0               v0.3.0              v1.0.0
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| **1. Skeleton** — Scaffolding, types, abstract engine interface, config system | 4 | ⬜ Pending |
+| **0. Engine Selection** — Voice quality gate, test `libritts` and Kokoro, commit to engine | 4 | 🔬 In Progress |
+| **1. Skeleton** — Scaffolding, types, abstract engine interface, config system | 4 | ⬜ Blocked by Phase 0 |
 | **2. Input Pipeline** — EPUB/TXT extraction, chapter detection, text normalization | 3 | ⬜ Pending |
-| **3. TTS Integration** — Engine adapter, voice manager, synthesizer with resume | 3 | 🔬 Spiking |
+| **3. TTS Integration** — Engine adapter, voice manager, synthesizer with resume | 3 | ⬜ Pending |
 | **4. Audio Assembly** — ffmpeg concat, loudness normalization, M4B packaging | 3 | ⬜ Pending |
 | **5. CLI & Ship** — `convert`/`voices` commands, README, smoke tests | 4 | ⬜ Pending |
+
+**Why Phase 0 first?** Voice quality is the #1 risk. If the voice sounds robotic, users won't listen for hours, and the tool fails regardless of technical correctness. We're testing `en_US-libritts` (audiobook-trained) and Kokoro before committing to an engine. See [Voice Quality Requirements](docs/SPEC.md#voice-quality-requirements).
 
 ### TTS Engine Strategy
 
 | Engine | License | Quality | CPU? | Cloning? | Target |
 |--------|---------|---------|:----:|:--------:|--------|
-| **Piper** | MIT | ★★★☆☆ | ✅ | ❌ | v0.1 baseline (spiked — robotic, exploring alternatives) |
-| **Kokoro** | Apache 2.0 | ★★★★☆ | ✅ | ❌ | v0.1 candidate (testing voice quality) |
-| **F5-TTS** | MIT | ★★★★★ | ⚠️ | ✅ | v0.2 — best quality + voice cloning |
+| **Piper** | MIT | ★★★☆☆ ⚠️ | ✅ | ❌ | v0.1 candidate (`lessac` robotic, testing `libritts`) |
+| **Kokoro** | Apache 2.0 | ★★★★☆ | ✅ | ❌ | v0.1 candidate (testing on MacBook Neo) |
+| **F5-TTS** | MIT | ★★★★★ | ⚠️ | ✅ | v0.2 — best quality + voice cloning (GPU may be required) |
+
+**Current Status:** Engine selection in progress. Piper's `en_US-lessac` voice failed quality gate (testers would not listen to a 10-hour book in this voice). Testing `en_US-libritts` (audiobook-trained) and Kokoro next. See [Spike Results](#-spike-results) and [Voice Quality Gate](docs/SPEC.md#voice-quality-gate).
 
 ---
 
@@ -106,18 +111,18 @@ Input File (EPUB/PDF/TXT)
 
 ## 🚀 Quickstart
 
-> **Note:** OpenNarrator is pre-alpha. The quickstart shows the target experience.
+> **Note:** OpenNarrator is pre-alpha and engine selection is in progress. The quickstart shows the target experience. Voice choice may change based on quality testing.
 
 ```bash
 # Install
 pip install opennarrator
 
 # Download a voice (one-time)
-opennarrator voices download --engine piper --voice en_US-lessac
+opennarrator voices download --engine piper --voice en_US-libritts  # audiobook-trained, more natural
 
 # Convert a book
 opennarrator convert "The Great Gatsby.epub" \
-  --voice en_US-lessac \
+  --voice en_US-libritts \
   --quality high \
   --speed 1.15 \
   --output gatsby.m4b
@@ -130,6 +135,8 @@ opennarrator convert "The Great Gatsby.epub" \
 - **Python 3.12+**
 - **ffmpeg** — `brew install ffmpeg` on macOS
 - **A TTS engine** — Piper (CPU, fast), Kokoro (CPU, natural), or F5-TTS (GPU, best)
+
+**Voice Quality:** We're testing multiple voices to find one suitable for long-form listening (5+ hours). See [Voice Quality Gate](docs/SPEC.md#voice-quality-gate) for criteria.
 
 ---
 
@@ -144,11 +151,13 @@ opennarrator/
 │   ├── audio/                 # ffmpeg wrapper + loudness normalization
 │   └── voice/                 # Voice manager, registry, cloning
 ├── docs/                      # Specs, architecture, engine comparison
-├── spikes/                    # Feasibility experiments (Piper ✅, Kokoro 🔄)
-├── tests/                     # unit/, integration/, smoke/
+├── spikes/                    # Feasibility experiments (Piper ⚠️, Kokoro 🔄)
+├── tests/                     # unit/, integration/, smoke/, voice_quality/
 ├── webui/                     # Next.js frontend (Phase 2)
 └── pyproject.toml
 ```
+
+**Note:** Piper spike is technically validated (fast, clean API) but voice quality is unvalidated. See [Spike 001](spikes/001-piper-feasibility/README.md) for details.
 
 ---
 
@@ -156,8 +165,10 @@ opennarrator/
 
 | Spike | Engine | Verdict | Key Finding |
 |-------|--------|---------|-------------|
-| [001](spikes/001-piper-feasibility/README.md) | Piper | **PARTIAL** | RTF 0.1x on Pi 5 (fast!), but `lessac` voice is robotic. `libritts` voice (audiobook-trained) untested. |
-| 002 | Kokoro | 🔄 Pending | Blocked on Pi (Python 3.13 incompatibility). Testing on MacBook Neo next. |
+| [001](spikes/001-piper-feasibility/README.md) | Piper | **PARTIAL** ✅⚠️ | **Technical ✅:** RTF 0.1x on Pi 5 (fast!), clean API, CPU-friendly. **Quality ⚠️:** `lessac` voice is robotic (failed quality gate). Testing `libritts` (audiobook-trained) next. |
+| [002](spikes/002-kokoro-feasibility/) | Kokoro | 🔄 Pending | Blocked on Pi (Python 3.13 incompatibility). Testing on MacBook Neo next. Reportedly more natural than Piper. |
+
+**Voice Quality Gate:** Before shipping v0.1, the chosen engine must pass a listening test: 2+ testers listen to a 5-minute sample and answer "Would you listen to a 10-hour book in this voice?" (≥50% must say "Yes"). See [Voice Quality Requirements](docs/SPEC.md#voice-quality-requirements).
 
 ---
 

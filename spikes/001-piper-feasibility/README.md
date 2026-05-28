@@ -13,9 +13,20 @@ Can Piper TTS serve as the first TTS engine for OpenNarrator? Specifically:
 
 ---
 
-## Verdict: VALIDATED ✅
+## Verdict: PARTIAL ✅⚠️
 
-Piper is an excellent first engine for OpenNarrator. It's fast, CPU-friendly, and has a clean Python API suitable for subprocess isolation.
+Piper is **technically excellent** but **voice quality is unvalidated** for long-form narration.
+
+**Validated ✅**
+- Speed: RTF 0.1-0.2x on Pi 5 (fast enough for real-time audiobook production)
+- API: Clean Python interface, subprocess-isolation friendly
+- Voice downloads: Works via HuggingFace, no auth required
+
+**Unvalidated / Failed ⚠️**
+- Voice quality: `en_US-lessac` sounds robotic even with tuning — **failed subjective quality gate** ("Would you listen to a 10-hour book in this voice?" → No)
+- `en_US-libritts` (audiobook-trained voice) remains untested — this is the next critical test
+
+**Recommendation:** Piper is the right *engine* choice for v0.1 (fast, CPU-friendly, clean API), but we cannot commit to it for v0.1 until either `libritts` passes the quality gate or Kokoro is evaluated as an alternative. See [Voice Quality Requirements](../../docs/SPEC.md#voice-quality-requirements) in the spec.
 
 ---
 
@@ -94,3 +105,45 @@ Piper prints ONNX warnings about GPU detection on every load (harmless but noisy
 5. **Bundle espeak data path** — pass `espeak_data_dir` from the engine adapter to handle subprocess venv differences.
 6. **Test the `lessac` voice on Mac** — quality assessment needed from the target platform.
 7. **Consider `synthesize()` for streaming** — if we want per-sentence progress bars, use `synthesize()` to get `AudioChunk` iterators and report progress sentence-by-sentence.
+
+---
+
+## Update: `en_US-libritts` Voice Test (2026-05-27)
+
+### Results
+
+| Metric | Value |
+|--------|-------|
+| **Model** | `en_US-libritts-high` (137 MB ONNX) |
+| **Test text** | Pride & Prejudice Ch.1 opening (2,428 chars) |
+| **Audio output** | 2.1 minutes (125.6 seconds) |
+| **Synthesis time** | 60.3 seconds |
+| **RTF** | 0.48x (2x faster than real-time) |
+| **Model load** | 0.3-0.4 seconds |
+| **Projection** | 10-hour book in ~4.8 hours |
+| **Platform** | Apple Silicon arm64 (CPU-only) |
+
+### Quality Assessment
+
+**Status:** AWAITING ASSESSMENT
+
+The 2.1-minute sample was synthesized successfully. The `libritts` voice (trained on LibriTTS audiobook recordings) sounds noticeably different from `lessac` — less robotic, more natural pacing. However, the final quality gate decision requires listener feedback.
+
+**Sample file:** `spikes/001-piper-feasibility/output-libritts/libritts_quality_test.wav`
+
+**Quality Gate Question:** "Would you listen to a 10-hour audiobook narrated in this voice?"
+
+### Next Steps
+
+- If `libritts` passes quality gate → **Piper confirmed as v0.1 engine**
+- If `libritts` fails → proceed to Kokoro testing (Spike 002)
+- If Kokoro also fails → validate F5-TTS CPU performance (Spike 003)
+
+### Spike Files
+
+| File | Description |
+|------|-------------|
+| `spike3_libritts.py` | libritts voice synthesis test script |
+| `output-libritts/libritts_quality_test.wav` | 2.1-min quality test sample |
+| `output-libritts/quicktest.wav` | Quick 3-second warmup test |
+| `output-libritts/libritts_sample.wav` | 42-second medium sample |
