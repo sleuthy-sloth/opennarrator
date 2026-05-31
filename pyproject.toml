@@ -81,7 +81,7 @@ disable_error_code = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["ebooklib.*"]
+module = ["ebooklib.*", "kokoro", "soundfile"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
