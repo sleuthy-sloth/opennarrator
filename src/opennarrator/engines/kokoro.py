@@ -75,13 +75,14 @@ class KokoroEngine(BaseTTSEngine):
         except Exception as exc:
             raise SynthesisError(f"Failed to load Kokoro model: {exc}") from exc
 
-    def synthesize(self, text: str, voice: str, output_path: Path) -> Path:
+    def synthesize(self, text: str, voice: str, output_path: Path, speed: float = 1.0) -> Path:
         """Synthesize text into a WAV file using Kokoro.
 
         Args:
             text: Text to synthesize.
             voice: Voice name (e.g. ``af_bella``).
             output_path: Destination WAV path.
+            speed: Speech speed multiplier (0.5-2.0).
 
         Returns:
             The path to the generated WAV file.
@@ -102,7 +103,7 @@ class KokoroEngine(BaseTTSEngine):
 
         try:
             # The pipeline returns a generator of Result objects
-            for result in pipeline(text, voice=voice):
+            for result in pipeline(text, voice=voice, speed=speed):
                 if result is not None and hasattr(result, "audio"):
                     chunk = result.audio.cpu().numpy()
                     audio_chunks.append(chunk)

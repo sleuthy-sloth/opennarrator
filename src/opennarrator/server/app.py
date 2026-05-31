@@ -68,7 +68,9 @@ def _update_job(job_id: str, **kwargs: Any) -> None:
             queue.put_nowait(json.dumps(update))
 
 
-async def _run_conversion(job_id: str, input_path: Path, voice: str, device: str) -> None:
+async def _run_conversion(
+    job_id: str, input_path: Path, voice: str, device: str, speed: float = 1.0
+) -> None:
     """Run the full conversion pipeline with progress updates."""
     try:
         _update_job(job_id, status="extracting", message="Reading ebook...")
@@ -105,7 +107,7 @@ async def _run_conversion(job_id: str, input_path: Path, voice: str, device: str
                 progress=(i / total_chapters) * 80,  # 0-80% for synthesis
             )
             out_path = work_dir / f"ch{i + 1:03d}.wav"
-            engine.synthesize(ch.text, voice, out_path)
+            engine.synthesize(ch.text, voice, out_path, speed=speed)
             chapter_wavs.append(out_path)
 
         _update_job(
@@ -180,8 +182,11 @@ async def api_convert(request: Request) -> JSONResponse:
     content = await file.read()
     input_path.write_bytes(content)
 
+    # Speed is passed as a form field
+    speed = float(str(form.get("speed", "1.0")))
+
     job_id = _create_job(input_path, voice, device)
-    asyncio.create_task(_run_conversion(job_id, input_path, voice, device))
+    asyncio.create_task(_run_conversion(job_id, input_path, voice, device, speed=speed))
 
     return JSONResponse({"job_id": job_id})
 
