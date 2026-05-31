@@ -340,7 +340,21 @@ async def index() -> HTMLResponse:
 
 
 def run(host: str = "127.0.0.1", port: int = 8080) -> None:
-    """Start the uvicorn server."""
+    """Start the uvicorn server.
+
+    Port is overridden by the PORT environment variable (used by Hugging
+    Face Spaces and other cloud platforms).
+    """
+    import os
+
+    # Allow PORT env var override (HF Spaces, Render, Fly.io)
+    env_port = os.environ.get("PORT")
+    if env_port:
+        try:
+            port = int(env_port)
+        except (ValueError, TypeError):
+            pass
+
     import uvicorn
 
     uvicorn.run(app, host=host, port=port, log_level="info")

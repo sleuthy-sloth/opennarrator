@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+
+# Git
+.git/
+.gitignore
+
+# Audio / outputs
+*.wav
+*.mp3
+*.m4b
+
+# Config
+.env
+.env.local
+
+# Spikes (not needed in production)
+spikes/
+
+# Docs
+docs/
+HANDOFF.md
+
+# Cache dirs
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pi-lens/
+.pytest_cache/
+
+# Tests (not needed at runtime)
+tests/
+
+# OS
+.DS_Store
