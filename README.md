@@ -6,17 +6,18 @@
 </div>
 
 <p align="center">
-  <i>Open-source audiobook factory — convert any ebook to a chaptered M4B<br>using open-source TTS. No API keys. No vendor lock-in. Just your CPU.</i>
+  <i>Open-source audiobook factory — convert any ebook to a chaptered M4B<br>using open-source TTS. No API keys. No vendor lock-in. Just your machine.</i>
 </p>
 
 <p align="center">
-  <a href="#"><img src="https://img.shields.io/badge/status-alpha-yellow?style=flat-square" alt="Status: Alpha"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.1--alpha-yellow?style=flat-square" alt="Status: v0.1-alpha"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/python-3.11+-informational?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="#"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square&logo=apple" alt="macOS"></a>
   <a href="#"><img src="https://img.shields.io/badge/TTS-Kokoro%20(82M)-green?style=flat-square" alt="TTS: Kokoro"></a>
   <a href="#"><img src="https://img.shields.io/badge/ffmpeg-required-orange?style=flat-square&logo=ffmpeg" alt="ffmpeg"></a>
-  <a href="#"><img src="https://img.shields.io/badge/tests-68%20passing-brightgreen?style=flat-square" alt="Tests: 68 passing"></a>
+  <a href="#"><img src="https://img.shields.io/badge/tests-78%20passing-brightgreen?style=flat-square" alt="Tests: 78 passing"></a>
+  <a href="#"><img src="https://img.shields.io/badge/UI-web+CLI-blueviolet?style=flat-square" alt="Web + CLI"></a>
 </p>
 
 ---
@@ -26,11 +27,16 @@
 OpenNarrator converts ebooks (EPUB, TXT) into **chaptered M4B audiobooks** using open-source text-to-speech, entirely on your machine.
 
 ```bash
-pip install opennarrator[kokoro]
-opennarrator convert "The Great Gatsby.epub" --voice af_bella --output gatsby.m4b
+opennarrator                         # → opens http://localhost:8080
+```
+
+Drop an ebook in the browser — get an M4B back. Or use the CLI:
+
+```bash
+opennarrator convert book.epub --voice af_bella --output book.m4b
 
   ████████████████████████████████████████ 100%
-  ✅ Done! 9 chapters, 5h 22m of audio → gatsby.m4b
+  ✅ Done! 9 chapters, 5h 22m of audio → book.m4b
 ```
 
 **No ElevenLabs. No AWS Polly. No Google Cloud TTS. No API keys. No usage limits.** Just open-source models and ffmpeg.
@@ -48,59 +54,69 @@ opennarrator convert "The Great Gatsby.epub" --voice af_bella --output gatsby.m4
 
 ---
 
-## ✨ Current Status
-
-> **Phase 3 of 6 complete** — TTS integration live and tested.
-
-### Done ✅
-- **Engine selection** — Kokoro (hexgrad/Kokoro-82M) passes quality gate. RTF 0.16x on MPS (10-hour book → ~1.6 hours)
-- **EPUB extraction** — Chapter detection, metadata, cover art, Gutenberg boilerplate stripping
-- **TXT extraction** — Regex chapter detection (Chapter 1, CHAPTER I, Stave One)
-- **Text normalization** — Number-to-words, entity decoding, smart quotes
-- **Kokoro TTS engine** — Auto-downloads model on first use, 10 voices, MPS/CUDA/CPU
-- **Voice manager** — Voice discovery and resolution
-- **Synthesizer** — Rich progress bars, ETA, resume support
-- **68 unit tests** — ruff + mypy clean
-
-### Upcoming 🔜
-- **ffmpeg assembly** — WAV concatenation, loudness normalization (EBU R128)
-- **M4B packager** — Chapter markers, cover art, metadata tags
-- **CLI commands** — `convert`, `voices`, `preview`
-- **Web UI** — Drag-and-drop FastAPI + Next.js frontend
-- **Single-bundle .app** — One-click install (macOS + Windows)
-
----
-
 ## 🚀 Quickstart
 
+### Prerequisites
+
 ```bash
-# Prerequisites
 brew install ffmpeg           # macOS
 # or: sudo apt install ffmpeg  # Linux
-
-# Install OpenNarrator
-pip install opennarrator[kokoro]
 ```
 
-That's it. The TTS model downloads automatically on first use.
+### Install
 
 ```bash
-# List available voices
-opennarrator voices list
+git clone git@github.com:sleuthy-sloth/opennarrator.git
+cd opennarrator
+bash install.sh --symlink     # creates `on` command globally
+```
 
-# Convert an EPUB to audiobook
+### Launch
+
+```bash
+on                            # opens http://localhost:8080 🎧
+```
+
+Or from the repo:
+
+```bash
+bash run.sh                   # auto-installs, auto-launches
+```
+
+The TTS model (~82M params + spaCy pipeline) downloads automatically on first conversion. Everything is cached — subsequent launches are instant.
+
+### CLI
+
+```bash
 opennarrator convert book.epub --voice af_bella --output book.m4b
-
-# Convert a plain text file
-opennarrator convert book.txt --voice am_adam --speed 1.05 --output book.m4b
-
-# Preview a single chapter
-opennarrator preview book.epub --chapter 3 --voice af_bella
+opennarrator convert book.txt --voice am_adam --speed 1.05
+opennarrator voices list
+opennarrator voices info af_bella
 ```
 
 ---
 
-## 🗺️ Architecture
+## 🌐 Web UI
+
+```
+http://localhost:8080
+```
+
+| Feature | |
+|---|---|
+| Drag-and-drop upload | Drop EPUB or TXT files |
+| Voice selector | All 10 Kokoro voices with descriptions |
+| Real-time progress | SSE-powered live progress bar + chapter status |
+| Job history | Sidebar with status, progress, and downloads |
+| Download | One-click M4B download on completion |
+
+<p align="center">
+  <i>Dark theme · warm amber accents · responsive layout</i>
+</p>
+
+---
+
+## 🏗️ Architecture
 
 ```
                     ┌──────────────┐
@@ -108,19 +124,19 @@ opennarrator preview book.epub --chapter 3 --voice af_bella
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
-                    │  Extractor   │  ebooklib / regex
-                    │  Normalizer  │  numbers → words, clean text
+                    │  Extractor   │  ebooklib / regex chapter detection
+                    │  Normalizer  │  numbers→words, entity decode, quotes
                     └──────┬───────┘
                            │  Chapters[]
                     ┌──────▼───────┐
-                    │  Synthesizer │  KokoroEngine (MPS/CPU)
-                    │  + Progress  │  Rich progress bars
-                    │  + Resume    │  Skip completed chapters
+                    │  Synthesizer │  KokoroEngine (MPS/CPU, 6x real-time)
+                    │  + Progress  │  Rich progress bars + resume
+                    │  + SSE       │  Real-time web progress stream
                     └──────┬───────┘
                            │  Per-chapter WAVs
                     ┌──────▼───────┐
-                    │   Packager   │  ffmpeg concat + loudnorm
-                    │              │  Chapter markers + cover
+                    │   Packager   │  ffmpeg loudnorm + concat + AAC
+                    │              │  Chapter markers + cover art + metadata
                     └──────┬───────┘
                            │
                     ┌──────▼───────┐
@@ -128,7 +144,7 @@ opennarrator preview book.epub --chapter 3 --voice af_bella
                     └──────────────┘
 ```
 
-### Engine Architecture
+### Engine Architecture (Pluggable)
 
 ```
 BaseTTSEngine (ABC)
@@ -166,8 +182,7 @@ Voices are **bundled in the model** — no separate download. First `synthesize(
 | **Kokoro** ✅ | MPS (A18 Pro) | **0.16x** | **~1.6 hours** |
 | Kokoro | CPU (A18 Pro) | ~0.27x | ~2.7 hours |
 | Piper libritts | CPU (Pi 5) | 0.48x | ~4.8 hours |
-| KitKat | CPU (Any) | 0.1x | ~1 hour |
-| F5-TTS ❌ | MPS (A18 Pro) | 10.48x | ~105 hours |
+| F5-TTS ❌ | MPS (A18 Pro) | 10.48x | ~105 hours (too slow) |
 
 *RTF = Real-Time Factor. Lower is faster. < 1.0 = faster than real-time.*
 
@@ -178,29 +193,21 @@ Voices are **bundled in the model** — no separate download. First `synthesize(
 ```
 opennarrator/
 ├── src/opennarrator/
-│   ├── cli/           # Typer CLI (convert, voices, preview, server)
-│   ├── pipeline/      # extractor, normalizer, synthesizer, packager
-│   ├── engines/       # base, kokoro, piper, f5_tts (pluggable)
-│   ├── audio/         # ffmpeg wrapper, loudness normalization
-│   ├── voice/         # manager, registry
+│   ├── cli/           # Typer CLI (convert, voices, server)
+│   ├── pipeline/      # Extractor, normalizer, synthesizer, packager
+│   ├── engines/       # Base, kokoro, null (pluggable TTS)
+│   ├── audio/         # FFmpeg wrapper, loudness normalization
+│   ├── voice/         # Manager, registry
+│   ├── server/        # FastAPI + static frontend
 │   ├── config.py      # Pydantic settings (YAML + env overrides)
 │   ├── types.py       # Chapter, BookMetadata, Voice, ConversionJob
 │   └── exceptions.py  # OpenNarratorError hierarchy
-├── tests/             # 68 unit tests
+├── tests/             # 78 unit tests
 ├── docs/              # SPEC, implementation plan, engine comparison
-└── spikes/            # Feasibility studies (Piper, Kokoro, F5-TTS)
+├── spikes/            # Feasibility studies (Piper, Kokoro, F5-TTS)
+├── install.sh         # One-command setup
+└── run.sh             # One-command launch
 ```
-
----
-
-## 🧑‍💻 Contributing
-
-OpenNarrator is in active early development. Best ways to help:
-
-1. **Test voices** — Listen to samples and report quality
-2. **Try it on your books** — Open issues for edge cases (weird EPUBs, long books)
-3. **Suggest engines** — Know a great open-source TTS engine? Open an issue
-4. **Web UI** — Phase 2 will need frontend contributors
 
 ---
 
