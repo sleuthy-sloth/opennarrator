@@ -36,4 +36,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
-*.wav
+
+# pi coding agent cache
+.pi-lens/
+
+# Ruff cache
+.ruff_cache/
