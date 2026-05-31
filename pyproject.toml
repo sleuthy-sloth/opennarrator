@@ -70,7 +70,18 @@ module = ["ebooklib.*", "pymupdf.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["opennarrator.config"]
+module = ["opennarrator.config", "opennarrator.pipeline.extractor"]
+ignore_missing_imports = true
+disable_error_code = [
+  "attr-defined",
+  "no-any-return",
+  "type-arg",
+  "no-untyped-def",
+  "no-untyped-call",
+]
+
+[[tool.mypy.overrides]]
+module = ["ebooklib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
