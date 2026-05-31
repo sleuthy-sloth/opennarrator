@@ -438,3 +438,112 @@ class TxtExtractor:
                 chapters.append(Chapter(index=len(chapters) + 1, title=title, text=text))
 
         return chapters
+
+
+# ── DOCX Extractor ────────────────────────────────────────────────────────
+
+
+class DocxExtractor:
+    """Extract chapters from Word (.docx) files using python-docx.
+
+    Detects chapters via Word heading styles (Heading 1, Heading 2, etc.).
+    Falls back to treating the entire document as a single chapter.
+    """
+
+    _HEADING_PREFIX = "Heading"
+
+    def extract(self, path: Path) -> BookMetadata:
+        """Parse a .docx file and return structured book data.
+
+        Args:
+            path: Path to the .docx file.
+
+        Returns:
+            BookMetadata containing detected chapters.
+
+        Raises:
+            ExtractionError: If the file is missing, empty, or unreadable.
+        """
+        if not path.exists():
+            raise ExtractionError(f"File not found: {path}")
+        if path.suffix.lower() not in (".docx", ".docm"):
+            raise ExtractionError(f"Expected .docx file, got {path.suffix}")
+
+        try:
+            from docx import Document as DocxDocument  # noqa: PLC0415
+
+            doc = DocxDocument(str(path))
+        except Exception as exc:
+            raise ExtractionError(f"Failed to read DOCX {path}: {exc}") from exc
+
+        chapters: list[Chapter] = []
+        current_chapter: list[str] = []
+        current_title = ""
+
+        # Try to extract title from the document's core properties
+        title = path.stem
+        try:
+            if doc.core_properties.title:
+                title = doc.core_properties.title.strip()  # type: ignore[union-attr]
+        except Exception:
+            pass
+
+        # Try to extract author
+        author = "Unknown Author"
+        try:
+            if doc.core_properties.author:
+                author = doc.core_properties.author.strip()  # type: ignore[union-attr]
+        except Exception:
+            pass
+
+        for para in doc.paragraphs:
+            style_name = para.style.name if para.style else ""
+            text = para.text.strip()
+
+            if not text:
+                if current_chapter:
+                    current_chapter.append("")
+                continue
+
+            if style_name.startswith(self._HEADING_PREFIX):
+                # Save previous chapter (no length filter — headings are intentional)
+                if current_chapter:
+                    body = "\n".join(current_chapter).strip()
+                    chapters.append(
+                        Chapter(
+                            index=len(chapters) + 1,
+                            title=current_title or f"Chapter {len(chapters) + 1}",
+                            text=body,
+                        )
+                    )
+                # Start new chapter
+                current_title = text
+                current_chapter = []
+            else:
+                current_chapter.append(text)
+
+        # Flush last chapter
+        if current_chapter:
+            body = "\n".join(current_chapter).strip()
+            chapters.append(
+                Chapter(
+                    index=len(chapters) + 1,
+                    title=current_title or f"Chapter {len(chapters) + 1}",
+                    text=body,
+                )
+            )
+
+        if not chapters:
+            # Fallback: everything as one chapter
+            all_text = "\n".join(p.text for p in doc.paragraphs if p.text).strip()
+            if all_text:
+                chapters = [Chapter(index=1, title=path.stem, text=all_text)]
+
+        if not chapters:
+            raise ExtractionError(f"No chapters found in {path}")
+
+        return BookMetadata(
+            title=title,
+            author=author,
+            chapters=chapters,
+        )

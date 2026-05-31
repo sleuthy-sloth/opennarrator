@@ -4,6 +4,7 @@ import typer
 from typer.core import TyperGroup
 
 from opennarrator.cli.convert import convert
+from opennarrator.cli.preview import preview
 from opennarrator.cli.server import server
 from opennarrator.cli.voices import info, list_voices
 
@@ -25,6 +26,7 @@ app = typer.Typer(
 )
 
 app.command("convert")(convert)
+app.command("preview")(preview)
 app.command("server")(server)
 
 voices_app = typer.Typer(

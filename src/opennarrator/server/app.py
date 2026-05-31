@@ -278,6 +278,38 @@ async def api_voices() -> JSONResponse:
     )
 
 
+_PREVIEW_CACHE: dict[str, Path] = {}
+_PREVIEW_TEXT = (
+    "It is a truth universally acknowledged, that a single man in possession "
+    "of a good fortune, must be in want of a wife. "
+    '"My dear Mr. Bennet," said his lady to him one day, "have you heard '
+    'that Netherfield Park is let at last?"'
+)
+
+
+@app.get("/api/preview/{voice_name}")
+async def api_preview(voice_name: str) -> FileResponse:
+    """Generate and serve a short voice preview sample."""
+    cache_dir = Path.home() / ".opennarrator" / "previews"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cached = cache_dir / f"{voice_name}.wav"
+
+    if cached.exists():
+        return FileResponse(str(cached), media_type="audio/wav")
+
+    # Generate the preview sample
+    engine = KokoroEngine(device="mps")
+    try:
+        engine.synthesize(_PREVIEW_TEXT, voice_name, cached)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Voice {voice_name!r} not available",
+        ) from exc
+
+    return FileResponse(str(cached), media_type="audio/wav")
+
+
 # ── Serve Frontend ──────────────────────────────────────────────────────
 
 

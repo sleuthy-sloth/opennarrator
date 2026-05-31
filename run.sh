@@ -14,17 +14,17 @@ SCRIPT=".venv/bin/opennarrator"
 
 # ── Auto-install ─────────────────────────────────────────────────────
 if [ ! -f "$REPO_DIR/$SCRIPT" ]; then
-    echo "⚙️  First-time setup — installing..."
-    bash "$REPO_DIR/install.sh"
-    echo ""
+	echo "⚙️  First-time setup — installing..."
+	bash "$REPO_DIR/install.sh"
+	echo ""
 fi
 
 # ── Check ffmpeg ────────────────────────────────────────────────────
 if ! command -v ffmpeg &>/dev/null; then
-    echo "ℹ️  Install ffmpeg for audio processing:"
-    echo "   macOS: brew install ffmpeg"
-    echo "   Linux: sudo apt install ffmpeg"
-    echo ""
+	echo "ℹ️  Install ffmpeg for audio processing:"
+	echo "   macOS: brew install ffmpeg"
+	echo "   Linux: sudo apt install ffmpeg"
+	echo ""
 fi
 
 # ── Launch ───────────────────────────────────────────────────────────

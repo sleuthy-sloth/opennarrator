@@ -22,7 +22,7 @@ from opennarrator.types import BookMetadata
 
 console = Console()
 
-SUPPORTED_INPUT = {".epub", ".txt"}
+SUPPORTED_INPUT = {".epub", ".txt", ".docx", ".docm"}
 SUPPORTED_OUTPUT = {".m4b"}
 
 
@@ -33,6 +33,10 @@ def _detect_extractor(path: Path):
         return EpubExtractor()
     elif suffix == ".txt":
         return TxtExtractor()
+    elif suffix in (".docx", ".docm"):
+        from opennarrator.pipeline.extractor import DocxExtractor  # noqa: PLC0415
+
+        return DocxExtractor()
     else:
         supported = ", ".join(sorted(SUPPORTED_INPUT))
         raise typer.BadParameter(f"Unsupported input format {suffix!r}. Supported: {supported}")
