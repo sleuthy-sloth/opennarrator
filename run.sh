@@ -2,49 +2,31 @@
 set -euo pipefail
 
 # ─────────────────────────────────────────────────────────────────────
-# OpenNarrator — launch the web UI
+# OpenNarrator — one-command launch
 # ─────────────────────────────────────────────────────────────────────
-# Usage:  bash run.sh
-#         bash run.sh --port 9090
-#         bash run.sh --no-browser
+# Usage:  bash run.sh              # launch web UI on :8080
+#         bash run.sh --port 9090  # custom port
+#         bash run.sh --cli ...    # pass args to CLI instead
 # ─────────────────────────────────────────────────────────────────────
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-PORT="${1:-8080}"
-OPEN_BROWSER=true
+SCRIPT=".venv/bin/opennarrator"
 
-# Parse arguments
-for arg in "$@"; do
-    case "$arg" in
-        --port=*) PORT="${arg#*=}" ;;
-        --port) ;;  # handled by positional
-        --no-browser|--no-open) OPEN_BROWSER=false ;;
-    esac
-done
-
-# ── Ensure installed ─────────────────────────────────────────────────
-if [ ! -f "$REPO_DIR/.venv/bin/opennarrator" ]; then
+# ── Auto-install ─────────────────────────────────────────────────────
+if [ ! -f "$REPO_DIR/$SCRIPT" ]; then
     echo "⚙️  First-time setup — installing..."
     bash "$REPO_DIR/install.sh"
     echo ""
 fi
 
-# ── Ensure ffmpeg ────────────────────────────────────────────────────
+# ── Check ffmpeg ────────────────────────────────────────────────────
 if ! command -v ffmpeg &>/dev/null; then
-    echo "⚠️  ffmpeg is required. Install it:"
+    echo "ℹ️  Install ffmpeg for audio processing:"
     echo "   macOS: brew install ffmpeg"
     echo "   Linux: sudo apt install ffmpeg"
     echo ""
 fi
 
 # ── Launch ───────────────────────────────────────────────────────────
-echo "🎧 OpenNarrator"
-echo "   Server: http://localhost:${PORT}"
-echo "   Press Ctrl+C to stop."
-echo ""
-
-if [ "$OPEN_BROWSER" = true ]; then
-    "$REPO_DIR/.venv/bin/opennarrator" server --port "$PORT"
-else
-    "$REPO_DIR/.venv/bin/opennarrator" server --port "$PORT" --no-open
-fi
+# Run opennarrator with all args (no args = launch web UI by default)
+exec "$REPO_DIR/$SCRIPT" "$@"
