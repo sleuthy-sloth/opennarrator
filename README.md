@@ -16,162 +16,89 @@
   <a href="#"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square&logo=apple" alt="macOS"></a>
   <a href="#"><img src="https://img.shields.io/badge/TTS-Kokoro%20(82M)-green?style=flat-square" alt="TTS: Kokoro"></a>
   <a href="#"><img src="https://img.shields.io/badge/ffmpeg-required-orange?style=flat-square&logo=ffmpeg" alt="ffmpeg"></a>
-  <a href="#"><img src="https://img.shields.io/badge/tests-78%20passing-brightgreen?style=flat-square" alt="Tests: 78 passing"></a>
-  <a href="#"><img src="https://img.shields.io/badge/UI-web+CLI-blueviolet?style=flat-square" alt="Web + CLI"></a>
+  <a href="#"><img src="https://img.shields.io/badge/formats-EPUB%20TXT%20DOCX-blue?style=flat-square" alt="Formats: EPUB TXT DOCX"></a>
+  <a href="#"><img src="https://img.shields.io/badge/tests-85%20passing-brightgreen?style=flat-square" alt="Tests: 85 passing"></a>
 </p>
 
 ---
 
 ## 🎧 What is OpenNarrator?
 
-OpenNarrator converts ebooks (EPUB, TXT) into **chaptered M4B audiobooks** using open-source text-to-speech, entirely on your machine.
+OpenNarrator converts ebooks (EPUB, TXT, DOCX) into **chaptered M4B audiobooks** using open-source text-to-speech, entirely on your machine.
 
 ```bash
-opennarrator                         # → opens http://localhost:8080
+on                      # → opens http://localhost:8080
 ```
 
-Drop an ebook in the browser — get an M4B back. Or use the CLI:
+Drop an ebook in the browser — preview voices with a click, adjust speed with a slider, and download a chaptered M4B. Or use the CLI:
 
 ```bash
-opennarrator convert book.epub --voice af_bella --output book.m4b
-
-  ████████████████████████████████████████ 100%
-  ✅ Done! 9 chapters, 5h 22m of audio → book.m4b
+opennarrator convert book.epub --voice af_bella --speed 1.1
+opennarrator preview af_bella          # hear a voice sample
+opennarrator voices list                # list all voices
 ```
 
-**No ElevenLabs. No AWS Polly. No Google Cloud TTS. No API keys. No usage limits.** Just open-source models and ffmpeg.
-
-### Why OpenNarrator?
-
-| | Commercial TTS | OpenNarrator |
-|---|---|---|
-| **Cost** | Per-character billing ($100s/year) | **Free** (MIT) |
-| **Privacy** | Your book text sent to cloud APIs | **100% offline** |
-| **Voice quality** | Excellent | **Good** (Kokoro 82M) |
-| **Speed** | Fast networked API | **6x real-time on MPS** |
-| **Lock-in** | Cannot switch providers | **Pluggable engines** |
-| **Chapters** | Often unsupported | **Full chapter markers** |
+**No ElevenLabs. No AWS Polly. No Google Cloud TTS. No API keys.** Just open-source models and ffmpeg.
 
 ---
 
 ## 🚀 Quickstart
 
-### Prerequisites
-
 ```bash
-brew install ffmpeg           # macOS
-# or: sudo apt install ffmpeg  # Linux
-```
-
-### Install
-
-```bash
+brew install ffmpeg                         # macOS: one-time
 git clone git@github.com:sleuthy-sloth/opennarrator.git
 cd opennarrator
-bash install.sh --symlink     # creates `on` command globally
+bash install.sh --symlink                   # creates `on` command
+
+on                                          # launch web UI
 ```
 
-### Launch
+The TTS model downloads automatically on first conversion. All subsequent launches are instant.
 
-```bash
-on                            # opens http://localhost:8080 🎧
-```
+### What you can convert
 
-Or from the repo:
-
-```bash
-bash run.sh                   # auto-installs, auto-launches
-```
-
-The TTS model (~82M params + spaCy pipeline) downloads automatically on first conversion. Everything is cached — subsequent launches are instant.
-
-### CLI
-
-```bash
-opennarrator convert book.epub --voice af_bella --output book.m4b
-opennarrator convert book.txt --voice am_adam --speed 1.05
-opennarrator voices list
-opennarrator voices info af_bella
-```
+| Format | Chapter detection |
+|--------|:-----------------:|
+| EPUB | TOC-based (ebooklib) |
+| TXT | Regex (`Chapter 1`, `CHAPTER I`, `Stave One`, etc.) |
+| DOCX | Heading styles (Heading 1, Heading 2, ...) |
 
 ---
 
 ## 🌐 Web UI
 
-```
-http://localhost:8080
-```
+`on` opens a dark-themed audiobook factory at `http://localhost:8080`:
 
-| Feature | |
+| Feature | Description |
 |---|---|
-| Drag-and-drop upload | Drop EPUB or TXT files |
-| Voice selector | All 10 Kokoro voices with descriptions |
-| Real-time progress | SSE-powered live progress bar + chapter status |
-| Job history | Sidebar with status, progress, and downloads |
-| Download | One-click M4B download on completion |
+| **Voice Gallery** | Voice cards with inline play buttons — click to hear any voice before converting |
+| **Speed Slider** | 0.5x – 2.0x speech rate, real-time label update |
+| **Drag & Drop** | EPUB / TXT / DOCX — format badges in drop zone |
+| **Chapter Timeline** | Live per-chapter progress during conversion with animated status dots |
+| **Job History** | Persists across page refreshes via localStorage |
+| **Advanced Settings** | Resume toggle, keep WAVs option |
+| **Real-time Progress** | SSE-powered progress bar with ETA |
 
-<p align="center">
-  <i>Dark theme · warm amber accents · responsive layout</i>
-</p>
-
----
-
-## 🏗️ Architecture
-
-```
-                    ┌──────────────┐
-                    │  Input File  │  EPUB / TXT / PDF
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  Extractor   │  ebooklib / regex chapter detection
-                    │  Normalizer  │  numbers→words, entity decode, quotes
-                    └──────┬───────┘
-                           │  Chapters[]
-                    ┌──────▼───────┐
-                    │  Synthesizer │  KokoroEngine (MPS/CPU, 6x real-time)
-                    │  + Progress  │  Rich progress bars + resume
-                    │  + SSE       │  Real-time web progress stream
-                    └──────┬───────┘
-                           │  Per-chapter WAVs
-                    ┌──────▼───────┐
-                    │   Packager   │  ffmpeg loudnorm + concat + AAC
-                    │              │  Chapter markers + cover art + metadata
-                    └──────┬───────┘
-                           │
-                    ┌──────▼───────┐
-                    │  book.m4b    │  🎧 Open in Apple Books
-                    └──────────────┘
-```
-
-### Engine Architecture (Pluggable)
-
-```
-BaseTTSEngine (ABC)
-  ├── KokoroEngine    ◄── v0.1 (live, Apache 2.0)
-  ├── PiperEngine     ──  fallback (fast, CPU-friendly)
-  ├── NullEngine      ──  testing (1s silence)
-  └── F5TTSEngine     ──  future (best quality, may need GPU)
-```
-
-Voices are **bundled in the model** — no separate download. First `synthesize()` call downloads the model from HuggingFace and caches it.
+Each voice preview generates a ~10-second sample from Jane Austen's *Pride and Prejudice* — cached so subsequent plays are instant.
 
 ---
 
 ## 🎙️ Voices
 
-| Voice | Description | Language |
-|-------|-------------|:--------:|
-| `af_bella` | American English Female — Bella | 🇺🇸 |
-| `af_nicole` | American English Female — Nicole | 🇺🇸 |
-| `af_sarah` | American English Female — Sarah | 🇺🇸 |
-| `af_sky` | American English Female — Sky | 🇺🇸 |
-| `am_adam` | American English Male — Adam | 🇺🇸 |
-| `am_michael` | American English Male — Michael | 🇺🇸 |
-| `bf_emma` | British English Female — Emma | 🇬🇧 |
-| `bf_isabella` | British English Female — Isabella | 🇬🇧 |
-| `bm_george` | British English Male — George | 🇬🇧 |
-| `bm_lewis` | British English Male — Lewis | 🇬🇧 |
+| Voice | Description | 
+|-------|-------------|
+| `af_bella` | American English Female — Bella |
+| `af_nicole` | American English Female — Nicole |
+| `af_sarah` | American English Female — Sarah |
+| `af_sky` | American English Female — Sky |
+| `am_adam` | American English Male — Adam |
+| `am_michael` | American English Male — Michael |
+| `bf_emma` | British English Female — Emma |
+| `bf_isabella` | British English Female — Isabella |
+| `bm_george` | British English Male — George |
+| `bm_lewis` | British English Male — Lewis |
+
+Preview any voice: `on preview af_bella` or click the play button in the Web UI.
 
 ---
 
@@ -179,12 +106,36 @@ Voices are **bundled in the model** — no separate download. First `synthesize(
 
 | Engine | Device | RTF | 10-hour book |
 |--------|:------:|:---:|:------------:|
-| **Kokoro** ✅ | MPS (A18 Pro) | **0.16x** | **~1.6 hours** |
+| **Kokoro** | MPS (A18 Pro) | **0.16x** | **~1.6 hours** |
 | Kokoro | CPU (A18 Pro) | ~0.27x | ~2.7 hours |
 | Piper libritts | CPU (Pi 5) | 0.48x | ~4.8 hours |
-| F5-TTS ❌ | MPS (A18 Pro) | 10.48x | ~105 hours (too slow) |
+| F5-TTS | MPS (A18 Pro) | 10.48x | ❌ too slow |
 
-*RTF = Real-Time Factor. Lower is faster. < 1.0 = faster than real-time.*
+---
+
+## 🏗️ Architecture
+
+```
+Input File (EPUB / TXT / DOCX)
+        │
+        ▼
+   Extractor ────► Chapters[] + Metadata
+        │
+        ▼
+   Normalizer ───► Numbers→words, entities, quotes
+        │
+        ▼
+   KokoroEngine ──► Per-chapter WAV files
+   (MPS/CPU,      │  Speed control (0.5x–2.0x)
+    6x real-time) │  Resume support
+        │
+        ▼
+   Packager ─────► ffmpeg loudnorm + concat + AAC
+                   Chapter markers + cover art + metadata
+        │
+        ▼
+      book.m4b 🎧
+```
 
 ---
 
@@ -193,18 +144,15 @@ Voices are **bundled in the model** — no separate download. First `synthesize(
 ```
 opennarrator/
 ├── src/opennarrator/
-│   ├── cli/           # Typer CLI (convert, voices, server)
-│   ├── pipeline/      # Extractor, normalizer, synthesizer, packager
-│   ├── engines/       # Base, kokoro, null (pluggable TTS)
-│   ├── audio/         # FFmpeg wrapper, loudness normalization
+│   ├── cli/           # convert, preview, voices, server
+│   ├── pipeline/      # extractor, normalizer, synthesizer, packager
+│   ├── engines/       # BaseTTSEngine, KokoroEngine, NullEngine
+│   ├── audio/         # FFmpeg wrapper (loudnorm, concat, M4B)
 │   ├── voice/         # Manager, registry
 │   ├── server/        # FastAPI + static frontend
-│   ├── config.py      # Pydantic settings (YAML + env overrides)
-│   ├── types.py       # Chapter, BookMetadata, Voice, ConversionJob
-│   └── exceptions.py  # OpenNarratorError hierarchy
-├── tests/             # 78 unit tests
-├── docs/              # SPEC, implementation plan, engine comparison
-├── spikes/            # Feasibility studies (Piper, Kokoro, F5-TTS)
+│   ├── config.py, types.py, exceptions.py
+├── tests/             # 85 unit tests
+├── spikes/            # Piper, Kokoro, F5-TTS feasibility studies
 ├── install.sh         # One-command setup
 └── run.sh             # One-command launch
 ```
@@ -213,11 +161,7 @@ opennarrator/
 
 ## 📜 License
 
-MIT © 2026 Sleuthy-Sloth
-
-OpenNarrator is free and open-source. The Kokoro TTS engine is Apache 2.0. Other engines have their own licenses — check before commercial use.
-
----
+MIT © 2026 Sleuthy-Sloth. Kokoro TTS is Apache 2.0.
 
 <p align="center">
   <sub>Built with 🎙️ by <a href="https://github.com/sleuthy-sloth">Sleuthy-Sloth</a></sub>
