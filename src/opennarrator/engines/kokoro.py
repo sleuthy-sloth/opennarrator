@@ -22,14 +22,24 @@ SAMPLE_RATE = 24000
 
 # Voices known to work with Kokoro-82M. Bundled in model weights.
 _KNOWN_VOICES: dict[str, str] = {
+    # American English Female
     "af_bella": "American English Female — Bella",
     "af_nicole": "American English Female — Nicole",
     "af_sarah": "American English Female — Sarah",
     "af_sky": "American English Female — Sky",
+    "af_alloy": "American English Female — Alloy",
+    "af_aoede": "American English Female — Aoede",
+    "af_heart": "American English Female — Heart",
+    "af_nova": "American English Female — Nova",
+    # American English Male
     "am_adam": "American English Male — Adam",
     "am_michael": "American English Male — Michael",
+    "am_onyx": "American English Male — Onyx",
+    "am_puck": "American English Male — Puck",
+    # British English Female
     "bf_emma": "British English Female — Emma",
     "bf_isabella": "British English Female — Isabella",
+    # British English Male
     "bm_george": "British English Male — George",
     "bm_lewis": "British English Male — Lewis",
 }

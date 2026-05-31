@@ -315,6 +315,18 @@ async def api_preview(voice_name: str) -> FileResponse:
     return FileResponse(str(cached), media_type="audio/wav")
 
 
+@app.delete("/api/previews/clear")
+async def api_clear_previews() -> JSONResponse:
+    """Clear the voice preview cache."""
+    cache_dir = Path.home() / ".opennarrator" / "previews"
+    if cache_dir.exists():
+        import shutil
+
+        shutil.rmtree(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    return JSONResponse({"ok": True, "cleared": True})
+
+
 # ── Serve Frontend ──────────────────────────────────────────────────────
 
 
