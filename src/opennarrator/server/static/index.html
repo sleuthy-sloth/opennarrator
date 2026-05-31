@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenNarrator — Audiobook Creator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: "#fffbeb",
+                100: "#fef3c7",
+                200: "#fde68a",
+                300: "#fcd34d",
+                400: "#fbbf24",
+                500: "#d97706",
+                600: "#b45309",
+                700: "#92400e",
+                800: "#78350f",
+                900: "#451a03",
+              },
+            },
+            fontFamily: {
+              sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+              mono: ["JetBrains Mono", "Fira Code", "monospace"],
+            },
+            animation: {
+              "pulse-slow": "pulse 3s ease-in-out infinite",
+              "slide-up": "slideUp 0.3s ease-out",
+              "fade-in": "fadeIn 0.3s ease-out",
+            },
+            keyframes: {
+              slideUp: {
+                "0%": { transform: "translateY(10px)", opacity: "0" },
+                "100%": { transform: "translateY(0)", opacity: "1" },
+              },
+              fadeIn: {
+                "0%": { opacity: "0" },
+                "100%": { opacity: "1" },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #374151;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #4b5563;
+      }
+
+      /* Drop zone */
+      .drop-zone {
+        transition: all 0.2s ease;
+      }
+      .drop-zone.drag-over {
+        border-color: #fbbf24;
+        background: rgba(251, 191, 36, 0.05);
+        transform: scale(1.01);
+      }
+      .drop-zone.has-file {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.05);
+      }
+
+      /* Progress bar */
+      .progress-bar {
+        transition: width 0.5s ease;
+      }
+
+      /* Glow effect for active state */
+      .glow-brand {
+        box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+      }
+
+      /* File input hidden */
+      input[type="file"] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body class="bg-[#0a0a0f] text-gray-100 min-h-screen">
+    <!-- Background gradient -->
+    <div
+      class="fixed inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#111118] to-[#0d0d15] pointer-events-none"
+    ></div>
+
+    <div class="relative z-10 max-w-6xl mx-auto px-4 py-8">
+      <!-- Header -->
+      <header class="flex items-center justify-between mb-10">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center"
+          >
+            <svg
+              class="w-5 h-5 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight">OpenNarrator</h1>
+            <p class="text-xs text-gray-500">Open-source audiobook factory</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span
+            id="serverStatus"
+            class="flex items-center gap-1.5 text-xs text-gray-500"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            Connected
+          </span>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main conversion panel -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Upload zone -->
+          <div
+            id="dropZone"
+            class="drop-zone relative rounded-2xl border-2 border-dashed border-gray-800 bg-gray-900/40 p-8 text-center cursor-pointer hover:border-gray-700"
+          >
+            <input type="file" id="fileInput" accept=".epub,.txt" />
+            <div id="uploadPlaceholder" class="py-6">
+              <div
+                class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-brand-500/20 to-brand-600/10 flex items-center justify-center"
+              >
+                <svg
+                  class="w-8 h-8 text-brand-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                  />
+                </svg>
+              </div>
+              <p class="text-sm font-medium text-gray-300">
+                Drop your ebook here
+              </p>
+              <p class="text-xs text-gray-600 mt-1">
+                or click to browse · EPUB or TXT
+              </p>
+            </div>
+            <div id="uploadFileInfo" class="hidden py-4 animate-fade-in">
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center"
+                >
+                  <svg
+                    class="w-5 h-5 text-emerald-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div class="flex-1 text-left">
+                  <p
+                    id="fileName"
+                    class="text-sm font-medium text-gray-200"
+                  ></p>
+                  <p id="fileSize" class="text-xs text-gray-500"></p>
+                </div>
+                <button
+                  id="removeFile"
+                  class="text-gray-600 hover:text-red-400 transition-colors"
+                >
+                  <svg
+                    class="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Options row -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1.5"
+                >Voice</label
+              >
+              <select
+                id="voiceSelect"
+                class="w-full rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2.5 text-sm text-gray-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 outline-none transition-all"
+              >
+                <option value="">Loading voices...</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1.5"
+                >Device</label
+              >
+              <select
+                id="deviceSelect"
+                class="w-full rounded-xl border border-gray-800 bg-gray-900/60 px-3 py-2.5 text-sm text-gray-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 outline-none transition-all"
+              >
+                <option value="mps">MPS (Apple Silicon)</option>
+                <option value="cpu">CPU</option>
+                <option value="cuda">CUDA (NVIDIA GPU)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Convert button -->
+          <button
+            id="convertBtn"
+            disabled
+            class="w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-3 px-6 text-sm font-semibold text-white shadow-lg shadow-brand-600/20 disabled:opacity-30 disabled:cursor-not-allowed hover:from-brand-500 hover:to-brand-400 active:scale-[0.98] transition-all duration-200 glow-brand"
+          >
+            <span id="convertBtnText">Convert to Audiobook</span>
+            <span id="convertBtnSpinner" class="hidden">
+              <svg
+                class="inline w-4 h-4 ml-2 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  class="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  stroke-width="4"
+                ></circle>
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                ></path>
+              </svg>
+            </span>
+          </button>
+
+          <!-- Progress section -->
+          <div
+            id="progressSection"
+            class="hidden rounded-2xl bg-gray-900/40 border border-gray-800/50 p-5 animate-slide-up"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <p
+                  id="progressStatus"
+                  class="text-sm font-medium text-gray-200"
+                >
+                  Converting...
+                </p>
+                <p
+                  id="progressMessage"
+                  class="text-xs text-gray-500 mt-0.5"
+                ></p>
+              </div>
+              <span
+                id="progressPercent"
+                class="text-sm font-mono text-brand-400"
+                >0%</span
+              >
+            </div>
+            <div class="h-2 rounded-full bg-gray-800 overflow-hidden">
+              <div
+                id="progressBar"
+                class="progress-bar h-full rounded-full bg-gradient-to-r from-brand-600 to-brand-400"
+                style="width: 0%"
+              ></div>
+            </div>
+            <div id="chapterProgress" class="mt-3 text-xs text-gray-600"></div>
+          </div>
+
+          <!-- Result section -->
+          <div
+            id="resultSection"
+            class="hidden rounded-2xl border p-5 animate-slide-up"
+          >
+            <div id="resultSuccess" class="hidden">
+              <div class="flex items-center gap-3">
+                <div
+                  class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center"
+                >
+                  <svg
+                    class="w-6 h-6 text-emerald-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <p class="text-sm font-medium text-gray-200">
+                    Conversion Complete
+                  </p>
+                  <p id="resultSize" class="text-xs text-gray-500 mt-0.5"></p>
+                </div>
+                <a
+                  id="downloadLink"
+                  class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+                >
+                  <svg
+                    class="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                  Download
+                </a>
+              </div>
+            </div>
+            <div id="resultError" class="hidden">
+              <div class="flex items-start gap-3">
+                <div
+                  class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0"
+                >
+                  <svg
+                    class="w-5 h-5 text-red-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-red-400">
+                    Conversion Failed
+                  </p>
+                  <p
+                    id="errorMessage"
+                    class="text-xs text-gray-500 mt-1 leading-relaxed"
+                  ></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Job history sidebar -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <h2
+              class="text-xs font-semibold uppercase tracking-wider text-gray-500"
+            >
+              Recent Jobs
+            </h2>
+            <span id="jobCount" class="text-xs text-gray-600">0</span>
+          </div>
+          <div
+            id="jobList"
+            class="space-y-2 max-h-[600px] overflow-y-auto pr-1"
+          >
+            <div id="emptyJobs" class="text-center py-12">
+              <svg
+                class="w-10 h-10 mx-auto mb-3 text-gray-800"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="1"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"
+                />
+              </svg>
+              <p class="text-xs text-gray-700">No conversions yet</p>
+              <p class="text-xs text-gray-800 mt-1">
+                Upload an ebook to get started
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="mt-12 text-center">
+        <p class="text-xs text-gray-800">
+          OpenNarrator · MIT License · Built with Kokoro TTS
+        </p>
+      </footer>
+    </div>
+
+    <script>
+      // ── State ─────────────────────────────────────────────────────────
+      let selectedFile = null;
+      let currentJobId = null;
+      let eventSource = null;
+
+      // ── DOM refs ──────────────────────────────────────────────────────
+      const dropZone = document.getElementById("dropZone");
+      const fileInput = document.getElementById("fileInput");
+      const uploadPlaceholder = document.getElementById("uploadPlaceholder");
+      const uploadFileInfo = document.getElementById("uploadFileInfo");
+      const fileName = document.getElementById("fileName");
+      const fileSize = document.getElementById("fileSize");
+      const removeFileBtn = document.getElementById("removeFile");
+      const voiceSelect = document.getElementById("voiceSelect");
+      const deviceSelect = document.getElementById("deviceSelect");
+      const convertBtn = document.getElementById("convertBtn");
+      const convertBtnText = document.getElementById("convertBtnText");
+      const convertBtnSpinner = document.getElementById("convertBtnSpinner");
+      const progressSection = document.getElementById("progressSection");
+      const progressBar = document.getElementById("progressBar");
+      const progressPercent = document.getElementById("progressPercent");
+      const progressStatus = document.getElementById("progressStatus");
+      const progressMessage = document.getElementById("progressMessage");
+      const chapterProgress = document.getElementById("chapterProgress");
+      const resultSection = document.getElementById("resultSection");
+      const resultSuccess = document.getElementById("resultSuccess");
+      const resultError = document.getElementById("resultError");
+      const resultSize = document.getElementById("resultSize");
+      const errorMessage = document.getElementById("errorMessage");
+      const downloadLink = document.getElementById("downloadLink");
+      const jobList = document.getElementById("jobList");
+      const emptyJobs = document.getElementById("emptyJobs");
+      const jobCount = document.getElementById("jobCount");
+
+      // ── Utility ───────────────────────────────────────────────────────
+      function formatSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+      }
+
+      function formatTime(iso) {
+        const d = new Date(iso);
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function jobStatusIcon(status) {
+        const icons = {
+          queued:
+            '<span class="w-2 h-2 rounded-full bg-gray-600 inline-block"></span>',
+          extracting:
+            '<span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse inline-block"></span>',
+          synthesizing:
+            '<span class="w-2 h-2 rounded-full bg-brand-400 animate-pulse inline-block"></span>',
+          packaging:
+            '<span class="w-2 h-2 rounded-full bg-purple-400 animate-pulse inline-block"></span>',
+          done: '<svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+          error:
+            '<svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>',
+        };
+        return icons[status] || icons.queued;
+      }
+
+      // ── Drag & Drop ───────────────────────────────────────────────────
+      dropZone.addEventListener("click", () => fileInput.click());
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        const file = e.dataTransfer.files[0];
+        if (file) setFile(file);
+      });
+
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files[0]) setFile(fileInput.files[0]);
+      });
+
+      removeFileBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearFile();
+      });
+
+      function setFile(file) {
+        const validExts = [".epub", ".txt"];
+        const ext = "." + file.name.split(".").pop().toLowerCase();
+        if (!validExts.includes(ext)) {
+          alert("Please select an EPUB or TXT file.");
+          return;
+        }
+        selectedFile = file;
+        uploadPlaceholder.classList.add("hidden");
+        uploadFileInfo.classList.remove("hidden");
+        uploadFileInfo.classList.add("flex");
+        dropZone.classList.add("has-file");
+        fileName.textContent = file.name;
+        fileSize.textContent = formatSize(file.size);
+        updateConvertBtn();
+      }
+
+      function clearFile() {
+        selectedFile = null;
+        fileInput.value = "";
+        uploadPlaceholder.classList.remove("hidden");
+        uploadFileInfo.classList.add("hidden");
+        uploadFileInfo.classList.remove("flex");
+        dropZone.classList.remove("has-file");
+        updateConvertBtn();
+      }
+
+      function updateConvertBtn() {
+        convertBtn.disabled = !selectedFile || !voiceSelect.value;
+      }
+
+      // ── Load voices ───────────────────────────────────────────────────
+      async function loadVoices() {
+        try {
+          const res = await fetch("/api/voices");
+          const voices = await res.json();
+          voiceSelect.innerHTML = voices
+            .map(
+              (v) =>
+                `<option value="${v.name}">${v.name} — ${v.description}</option>`,
+            )
+            .join("");
+          updateConvertBtn();
+        } catch (e) {
+          voiceSelect.innerHTML =
+            '<option value="af_bella">af_bella — American Female</option>';
+          updateConvertBtn();
+        }
+      }
+      loadVoices();
+
+      // ── Convert ───────────────────────────────────────────────────────
+      convertBtn.addEventListener("click", startConversion);
+
+      async function startConversion() {
+        if (!selectedFile || currentJobId) return;
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("voice", voiceSelect.value);
+        formData.append("device", deviceSelect.value);
+
+        // UI: loading state
+        setConverting(true);
+        resultSection.classList.add("hidden");
+        resultSuccess.classList.add("hidden");
+        resultError.classList.add("hidden");
+        progressSection.classList.remove("hidden");
+
+        try {
+          const res = await fetch("/api/convert", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          currentJobId = data.job_id;
+          // Job appears in sidebar
+          pollJobs();
+          // Start SSE
+          listenToSSE(currentJobId);
+        } catch (e) {
+          setConverting(false);
+          showError("Failed to start conversion: " + e.message);
+        }
+      }
+
+      function setConverting(converting) {
+        if (converting) {
+          convertBtn.disabled = true;
+          convertBtnText.textContent = "Converting...";
+          convertBtnSpinner.classList.remove("hidden");
+          progressBar.style.width = "0%";
+          progressPercent.textContent = "0%";
+          progressStatus.textContent = "Starting...";
+          progressMessage.textContent = "Preparing pipeline";
+        } else {
+          convertBtnText.textContent = "Convert to Audiobook";
+          convertBtnSpinner.classList.add("hidden");
+          updateConvertBtn();
+        }
+      }
+
+      // ── SSE Progress ──────────────────────────────────────────────────
+      function listenToSSE(jobId) {
+        if (eventSource) eventSource.close();
+        eventSource = new EventSource(`/api/jobs/${jobId}/stream`);
+
+        eventSource.addEventListener("progress", (e) => {
+          const data = JSON.parse(e.data);
+          updateProgress(data);
+        });
+
+        eventSource.addEventListener("done", () => {
+          eventSource.close();
+          eventSource = null;
+          currentJobId = null;
+          setConverting(false);
+          pollJobs(); // Refresh sidebar
+        });
+
+        eventSource.onerror = () => {
+          // After timeout, poll instead
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          // Fallback polling
+          const poll = setInterval(async () => {
+            if (!currentJobId) {
+              clearInterval(poll);
+              return;
+            }
+            try {
+              const res = await fetch(`/api/jobs/${currentJobId}`);
+              const job = await res.json();
+              updateProgress(job);
+              if (job.status === "done" || job.status === "error") {
+                clearInterval(poll);
+                currentJobId = null;
+                setConverting(false);
+                pollJobs();
+              }
+            } catch (e) {}
+          }, 1000);
+        };
+      }
+
+      function updateProgress(job) {
+        progressBar.style.width = job.progress + "%";
+        progressPercent.textContent = Math.round(job.progress) + "%";
+
+        const statusLabels = {
+          queued: "Queued",
+          extracting: "Extracting chapters",
+          synthesizing: "Synthesizing speech",
+          packaging: "Assembling audiobook",
+          done: "Complete",
+          error: "Failed",
+        };
+        progressStatus.textContent = statusLabels[job.status] || job.status;
+        progressMessage.textContent = job.message || "";
+
+        if (job.chapters_total > 0) {
+          chapterProgress.textContent = `Chapter ${job.chapters_completed || 0} of ${job.chapters_total}`;
+        }
+
+        if (job.status === "done") {
+          showResult(job);
+        } else if (job.status === "error") {
+          showError(job.error || "Unknown error");
+        }
+      }
+
+      // ── Results ───────────────────────────────────────────────────────
+      function showResult(job) {
+        resultSection.classList.remove("hidden");
+        resultSuccess.classList.remove("hidden");
+        resultError.classList.add("hidden");
+        downloadLink.href = `/api/download/${job.id}`;
+
+        fetch(`/api/jobs/${job.id}`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (j.output_file) {
+              // Try to get file size
+              resultSize.textContent = `${job.chapters_total} chapters`;
+            }
+          });
+      }
+
+      function showError(msg) {
+        resultSection.classList.remove("hidden");
+        resultError.classList.remove("hidden");
+        resultSuccess.classList.add("hidden");
+        errorMessage.textContent = msg;
+      }
+
+      // ── Job History ───────────────────────────────────────────────────
+      async function pollJobs() {
+        try {
+          const res = await fetch("/api/jobs");
+          const jobs = await res.json();
+          renderJobs(jobs);
+        } catch (e) {}
+      }
+
+      function renderJobs(jobs) {
+        if (jobs.length === 0) {
+          emptyJobs.classList.remove("hidden");
+          jobCount.textContent = "0";
+          return;
+        }
+        emptyJobs.classList.add("hidden");
+        jobCount.textContent = jobs.length;
+
+        // Remove old job cards (keep empty state)
+        document.querySelectorAll(".job-card").forEach((el) => el.remove());
+
+        jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        jobs.forEach((job) => {
+          const card = document.createElement("div");
+          card.className =
+            "job-card rounded-xl bg-gray-900/30 border border-gray-800/50 p-3 hover:border-gray-700/50 transition-all cursor-pointer";
+          card.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 flex-shrink-0">${jobStatusIcon(job.status)}</div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium text-gray-300 truncate">${job.input_file}</p>
+              <p class="text-xs text-gray-600 mt-0.5">${job.voice} · ${formatTime(job.created_at)}</p>
+              <p class="text-xs text-gray-700 mt-0.5 truncate">${job.message}</p>
+              ${job.status === "done" ? `<a href="/api/download/${job.id}" class="inline-flex items-center gap-1 mt-2 text-xs text-emerald-400 hover:text-emerald-300">Download <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg></a>` : ""}
+              ${job.status === "error" ? `<p class="text-xs text-red-500/70 mt-1 truncate">${job.message}</p>` : ""}
+            </div>
+            ${
+              job.status !== "done" && job.status !== "error" && job.progress
+                ? `
+              <div class="text-xs font-mono text-gray-600">${Math.round(job.progress)}%</div>
+            `
+                : ""
+            }
+          </div>
+        `;
+          jobList.appendChild(card);
+        });
+      }
+
+      // ── Poll jobs on load ─────────────────────────────────────────────
+      pollJobs();
+      setInterval(pollJobs, 5000);
+    </script>
+  </body>
+</html>
