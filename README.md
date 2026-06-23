@@ -44,6 +44,9 @@ opennarrator voices list                   # list all voices
 
 ---
 
+| **GitHub Codespaces** | Click below — free 60h/month, 4-core CPU |
+
+
 ## 🚀 Quickstart
 
 ```bash
@@ -56,6 +59,19 @@ on                                          # launch web UI
 ```
 
 The TTS model downloads automatically on first conversion. All subsequent launches are instant.
+
+### Option 2: GitHub Codespaces (no install)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sleuthy-sloth/opennarrator)
+
+Click the button above. Wait ~3 minutes for setup. When the terminal shows `✅ OpenNarrator ready`, run:
+
+```bash
+opennarrator convert --demo        # test the pipeline in 60 seconds
+opennarrator convert book.epub     # convert your own ebook
+```
+
+Codespaces gives you a **free 4-core cloud machine** with 60 hours/month. Faster than a Raspberry Pi, zero local setup. Upload your EPUB via drag-and-drop in the file explorer, download the M4B when done.
 
 ### What you can convert
 
