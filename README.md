@@ -44,34 +44,37 @@ opennarrator voices list                   # list all voices
 
 ---
 
-| **GitHub Codespaces** | Click below — free 60h/month, 4-core CPU |
-
-
 ## 🚀 Quickstart
 
+### Option 1: Homebrew (macOS)
 ```bash
-brew install ffmpeg                         # macOS: one-time
-git clone git@github.com:sleuthy-sloth/opennarrator.git
-cd opennarrator
-bash install.sh --symlink                   # creates `on` command
+brew tap sleuthy-sloth/tap
+brew install opennarrator
 
-on                                          # launch web UI
+opennarrator convert --demo     # test in 60 seconds
+opennarrator convert book.epub  # convert your own ebook
 ```
 
-The TTS model downloads automatically on first conversion. All subsequent launches are instant.
+### Option 2: pip
+```bash
+pip install git+https://github.com/sleuthy-sloth/opennarrator.git[kokoro]
+opennarrator convert --demo
+```
 
-### Option 2: GitHub Codespaces (no install)
+### Option 3: GitHub Codespaces (no install)
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/sleuthy-sloth/opennarrator)
 
-Click the button above. Wait ~3 minutes for setup. When the terminal shows `✅ OpenNarrator ready`, run:
+Click the button, wait ~3 minutes for setup, run `opennarrator convert --demo`. Free 4-core cloud machine, 60 hours/month.
 
+### From source
 ```bash
-opennarrator convert --demo        # test the pipeline in 60 seconds
-opennarrator convert book.epub     # convert your own ebook
+git clone git@github.com:sleuthy-sloth/opennarrator.git
+cd opennarrator
+bash install.sh --symlink                   # creates `on` command
 ```
 
-Codespaces gives you a **free 4-core cloud machine** with 60 hours/month. Faster than a Raspberry Pi, zero local setup. Upload your EPUB via drag-and-drop in the file explorer, download the M4B when done.
+The TTS model downloads automatically on first conversion.
 
 ### What you can convert
 
