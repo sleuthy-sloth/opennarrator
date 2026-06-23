@@ -7,6 +7,7 @@ downloaded automatically on first use.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -70,7 +71,7 @@ class KokoroEngine(BaseTTSEngine):
             return device
         if torch.cuda.is_available():
             return "cuda"
-        if torch.backends.mps.is_available():
+        if sys.platform == "darwin" and torch.backends.mps.is_available():
             return "mps"
         return "cpu"
 
