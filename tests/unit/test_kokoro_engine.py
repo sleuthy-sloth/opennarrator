@@ -13,7 +13,8 @@ class TestKokoroEngine:
 
     @pytest.fixture
     def engine(self) -> KokoroEngine:
-        return KokoroEngine(device="mps")
+        # Device auto-detected: MPS on macOS, CUDA if available, CPU on CI
+        return KokoroEngine()
 
     def test_list_voices(self, engine: KokoroEngine) -> None:
         voices = engine.list_voices()

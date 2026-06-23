@@ -8,7 +8,7 @@ from opennarrator.voice.manager import VoiceManager
 
 @pytest.fixture
 def manager() -> VoiceManager:
-    engine = KokoroEngine(device="mps")
+    engine = KokoroEngine()
     return VoiceManager(engine)
 
 

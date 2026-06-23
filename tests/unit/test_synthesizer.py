@@ -12,7 +12,8 @@ from opennarrator.types import Chapter
 
 @pytest.fixture
 def engine() -> KokoroEngine:
-    return KokoroEngine(device="mps")
+    # Device auto-detected: MPS on macOS, CUDA if available, CPU on CI
+    return KokoroEngine()
 
 
 @pytest.fixture
@@ -76,7 +77,7 @@ class TestSynthesizer:
         assert path.suffix == ".wav"
 
     def test_invalid_voice_raises(self, tmp_path: Path) -> None:
-        engine = KokoroEngine(device="mps")
+        engine = KokoroEngine()
         synth = Synthesizer(engine=engine, output_dir=tmp_path, voice="nonexistent")
         chapters = [Chapter(index=1, title="Test", text="Hello.")]
         with pytest.raises(SynthesisError):
