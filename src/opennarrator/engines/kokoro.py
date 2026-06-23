@@ -12,7 +12,6 @@ from typing import Any
 
 import numpy as np
 import soundfile as sf
-import torch
 
 from opennarrator.engines.base import BaseTTSEngine
 from opennarrator.exceptions import SynthesisError
@@ -45,17 +44,6 @@ _KNOWN_VOICES: dict[str, str] = {
 }
 
 
-def _resolve_device(device: str | None = None) -> str:
-    """Determine best available compute device."""
-    if device:
-        return device
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
 class KokoroEngine(BaseTTSEngine):
     """TTS engine adapter for Kokoro (hexgrad/Kokoro-82M).
 
@@ -64,15 +52,37 @@ class KokoroEngine(BaseTTSEngine):
     """
 
     def __init__(self, device: str | None = None) -> None:
-        self._device = _resolve_device(device)
-        self._pipeline: Any = None  # Lazy init on first use
+        self._device = device  # Resolved lazily when torch is imported
+        self._pipeline: Any = None
         self._model: Any = None
         self._loaded: bool = False
+
+    @staticmethod
+    def _resolve_device(device: str | None = None) -> str:
+        """Determine best available compute device.
+
+        Import torch lazily — this module may be imported without
+        torch installed (e.g. for CLI help or voice listing).
+        """
+        import torch  # noqa: PLC0415
+
+        if device:
+            return device
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
 
     def _ensure_loaded(self) -> None:
         """Lazy-load the Kokoro pipeline and model."""
         if self._loaded:
             return
+
+        # Resolve device on first use
+        if self._device is None:
+            self._device = self._resolve_device()
+
         try:
             from kokoro import KPipeline  # noqa: PLC0415
 
@@ -85,7 +95,9 @@ class KokoroEngine(BaseTTSEngine):
         except Exception as exc:
             raise SynthesisError(f"Failed to load Kokoro model: {exc}") from exc
 
-    def synthesize(self, text: str, voice: str, output_path: Path, speed: float = 1.0) -> Path:
+    def synthesize(
+        self, text: str, voice: str, output_path: Path, speed: float = 1.0
+    ) -> Path:
         """Synthesize text into a WAV file using Kokoro.
 
         Args:
@@ -112,7 +124,6 @@ class KokoroEngine(BaseTTSEngine):
         audio_chunks: list[Any] = []
 
         try:
-            # The pipeline returns a generator of Result objects
             for result in pipeline(text, voice=voice, speed=speed):
                 if result is not None and hasattr(result, "audio"):
                     chunk = result.audio.cpu().numpy()
@@ -129,7 +140,9 @@ class KokoroEngine(BaseTTSEngine):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             sf.write(str(output_path), full_audio, SAMPLE_RATE)
         except OSError as exc:
-            raise SynthesisError(f"Failed to write WAV to {output_path}: {exc}") from exc
+            raise SynthesisError(
+                f"Failed to write WAV to {output_path}: {exc}"
+            ) from exc
 
         return output_path
 

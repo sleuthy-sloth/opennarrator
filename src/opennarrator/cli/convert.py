@@ -25,6 +25,28 @@ console = Console()
 SUPPORTED_INPUT = {".epub", ".txt", ".docx", ".docm"}
 SUPPORTED_OUTPUT = {".m4b"}
 
+# Built-in sample passage for the --demo one-shot verification.
+_DEMO_TEXT = (
+    "It was a bright cold day in April, and the clocks were striking thirteen. "
+    "Winston Smith, his chin nuzzled into his breast in an effort to escape the "
+    "vile wind, slipped quickly through the glass doors of Victory Mansions, "
+    "though not quickly enough to prevent a swirl of gritty dust from entering "
+    "along with him. The hallway smelt of boiled cabbage and old rag mats. "
+    "At one end of it a coloured poster, too large for indoor display, had been "
+    "tacked to the wall. It depicted simply an enormous face, more than a metre "
+    "wide: the face of a man of about forty-five, with a heavy black moustache "
+    "and ruggedly handsome features. Winston made for the stairs. It was no use "
+    "trying the lift. Even at the best of times it was seldom working, and at "
+    "present the electric current was cut off during daylight hours. It was part "
+    "of the economy drive in preparation for Hate Week. The flat was seven "
+    "flights up, and Winston, who was thirty-nine and had a varicose ulcer above "
+    "his right ankle, went slowly, resting several times on the way. On each "
+    "landing, opposite the lift-shaft, the poster with the enormous face gazed "
+    "from the wall. It was one of those pictures which are so contrived that the "
+    "eyes follow you about when you move. BIG BROTHER IS WATCHING YOU, the "
+    "caption beneath it ran."
+)
+
 
 def _detect_extractor(path: Path):
     """Return the appropriate extractor for the input file."""
@@ -40,6 +62,58 @@ def _detect_extractor(path: Path):
     else:
         supported = ", ".join(sorted(SUPPORTED_INPUT))
         raise typer.BadParameter(f"Unsupported input format {suffix!r}. Supported: {supported}")
+
+
+def _run_demo(voice: str, device: str | None, speed: float, keep_wavs: bool) -> None:
+    """Synthesize a built-in passage to verify the full pipeline."""
+    from opennarrator.pipeline.normalizer import TextNormalizer
+
+    console.print("[bold]OpenNarrator Demo[/bold] — verifying the full pipeline\n")
+    console.print(f"  Voice: [cyan]{voice}[/cyan]")
+    console.print(f"  Device: [cyan]{device or 'auto'}[/cyan]")
+    console.print(f"  Speed: [cyan]{speed}x[/cyan]")
+    console.print(f"  Passage: [dim]{len(_DEMO_TEXT)} chars[/dim]\n")
+
+    # ── Normalize ──
+    console.print("[bold]Step 1/3:[/bold] Normalizing text...")
+    normalizer = TextNormalizer()
+    text = normalizer.normalize(_DEMO_TEXT)
+    console.print("  [green]✓[/green] Done\n")
+
+    # ── Synthesize ──
+    console.print("[bold]Step 2/3:[/bold] Synthesizing speech (this may take a minute)...")
+    engine = KokoroEngine(device=device)
+    synthesizer = Synthesizer(
+        engine=engine,
+        output_dir=Path.cwd() / ".opennarrator_demo",
+        voice=voice,
+        resume=False,
+    )
+    chapter = type("Chapter", (), {"number": 1, "title": "Demo", "text": text})()
+    try:
+        wavs = synthesizer.synthesize_chapters([chapter])
+    except Exception as exc:
+        console.print(f"[red]Synthesis failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(f"  [green]✓[/green] {len(wavs)} WAV file(s)\n")
+
+    # ── Package ──
+    output = Path.cwd() / "opennarrator_demo.m4b"
+    console.print("[bold]Step 3/3:[/bold] Packaging M4B...")
+    metadata = BookMetadata(title="OpenNarrator Demo", author="Demo", chapters=[chapter])
+    packager = Packager(output_path=output, metadata=metadata, keep_wavs=keep_wavs)
+    try:
+        final = packager.package(wavs)
+    except Exception as exc:
+        console.print(f"[red]Packaging failed:[/red] {exc}")
+        raise typer.Exit(code=1) from exc
+
+    size_mb = final.stat().st_size / (1024 * 1024)
+    console.print(f"\n[bold green]✅ Demo complete![/bold green] → {final.name} ({size_mb:.1f} MB)")
+    console.print(f"  Open: [blue]open {final}[/blue]")
+    console.print(
+        "\n[dim]Now try it on a real book: opennarrator convert your-book.epub[/dim]"
+    )
 
 
 def convert(
@@ -60,11 +134,11 @@ def convert(
         "-o",
         help="Output .m4b file path",
     ),
-    device: str = typer.Option(
-        "mps",
+    device: str | None = typer.Option(
+        None,
         "--device",
         "-d",
-        help="Compute device (cpu, mps, cuda)",
+        help="Compute device (auto-detected if not set: cpu, mps, cuda)",
     ),
     speed: float = typer.Option(
         1.0,
@@ -84,12 +158,25 @@ def convert(
         "--keep-wavs",
         help="Keep intermediate WAV files",
     ),
+    demo: bool = typer.Option(
+        False,
+        "--demo",
+        help="Synthesize a built-in passage to verify the full pipeline",
+    ),
 ) -> None:
     """Convert an ebook to an M4B audiobook.
 
     Runs the full pipeline: extract chapters, normalize text,
     synthesize speech with Kokoro TTS, and package into a chaptered M4B.
+
+    Use --demo to test the pipeline with a built-in sample passage
+    (no ebook required).
     """
+    # ── Demo mode: synthesize built-in passage ──────────────────────
+    if demo:
+        _run_demo(voice, device, speed, keep_wavs)
+        return
+
     # ── Resolve output path ─────────────────────────────────────────
     if output is None:
         output = input_path.with_suffix(".m4b")

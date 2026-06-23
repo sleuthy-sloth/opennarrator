@@ -52,6 +52,9 @@ class TestKokoroEngineUnit:
     """Pure unit tests (no real synthesis)."""
 
     def test_engine_default_device_fallback(self) -> None:
-        """Engine should init without error (device resolved at runtime)."""
+        """Engine should init without error, device resolved lazily on first use."""
         engine = KokoroEngine()
+        # Device is initially None — resolved when _ensure_loaded() is called
+        assert engine._device is None
+        engine._ensure_loaded()
         assert engine._device in ("cpu", "mps", "cuda")

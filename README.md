@@ -10,7 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.1--alpha-yellow?style=flat-square" alt="Status: v0.1-alpha"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.2-green?style=flat-square" alt="Status: v0.2"></a>
+  <a href="https://github.com/sleuthy-sloth/opennarrator/actions/workflows/ci.yml"><img src="https://github.com/sleuthy-sloth/opennarrator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/python-3.11+-informational?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+"></a>
   <a href="#"><img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey?style=flat-square&logo=apple" alt="macOS"></a>
@@ -34,8 +35,9 @@ Drop an ebook in the browser — preview voices with a click, adjust speed with 
 
 ```bash
 opennarrator convert book.epub --voice af_bella --speed 1.1
-opennarrator preview af_bella          # hear a voice sample
-opennarrator voices list                # list all voices
+opennarrator convert --demo                # test with built-in passage
+opennarrator preview af_bella              # hear a voice sample
+opennarrator voices list                   # list all voices
 ```
 
 **No ElevenLabs. No AWS Polly. No Google Cloud TTS. No API keys.** Just open-source models and ffmpeg.
