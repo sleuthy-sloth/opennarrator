@@ -78,7 +78,7 @@ module = ["ebooklib.*", "pymupdf.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["kokoro", "soundfile", "torch", "torch.*"]
+module = ["kokoro", "soundfile", "torch", "torch.*", "numpy", "numpy.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
