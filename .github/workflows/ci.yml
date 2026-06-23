@@ -25,7 +25,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
       - name: Install package + dev deps
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,server]"
 
       - name: Ruff (lint + format check)
         run: ruff check . && ruff format --check .

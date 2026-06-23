@@ -82,6 +82,10 @@ module = ["kokoro", "soundfile", "torch", "torch.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["fastapi", "fastapi.*", "sse_starlette.*", "uvicorn.*", "aiofiles"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["opennarrator.pipeline.extractor"]
 disable_error_code = [
   "attr-defined",
