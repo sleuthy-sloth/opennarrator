@@ -484,7 +484,7 @@ class DocxExtractor:
         title = path.stem
         try:
             if doc.core_properties.title:
-                title = doc.core_properties.title.strip()  # type: ignore[union-attr]
+                title = doc.core_properties.title.strip()
         except Exception:
             pass
 
@@ -492,7 +492,7 @@ class DocxExtractor:
         author = "Unknown Author"
         try:
             if doc.core_properties.author:
-                author = doc.core_properties.author.strip()  # type: ignore[union-attr]
+                author = doc.core_properties.author.strip()
         except Exception:
             pass
 

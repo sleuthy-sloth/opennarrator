@@ -156,7 +156,7 @@ def main():
     print(f"  Total: {duration/60:.1f} min audio in {synth_time:.1f}s (RTF: {rtf:.2f}x, {size_mb:.1f} MB)")
 
     # 5. Performance summary
-    print(f"\n[5] Performance Summary:")
+    print("\n[5] Performance Summary:")
     print(f"  Model: libritts-high ({model_mb:.0f} MB)")
     print(f"  Load time: {load_time:.1f}s")
     print(f"  RTF (overall): {rtf:.2f}x")
@@ -164,11 +164,11 @@ def main():
     print(f"  Sample file: {output_path}")
 
     # 6. Quality assessment (subjective — manual)
-    print(f"\n[6] Voice Quality Assessment:")
+    print("\n[6] Voice Quality Assessment:")
     print(f"  Listen to: {output_path}")
-    print(f"  Question: \"Would you listen to a 10-hour audiobook in this voice?\"")
-    print(f"  Answer: ___ (Yes/No)")
-    print(f"  Notes: ________________________________________")
+    print("  Question: \"Would you listen to a 10-hour audiobook in this voice?\"")
+    print("  Answer: ___ (Yes/No)")
+    print("  Notes: ________________________________________")
 
 
 if __name__ == "__main__":

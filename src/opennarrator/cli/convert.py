@@ -48,7 +48,7 @@ _DEMO_TEXT = (
 )
 
 
-def _detect_extractor(path: Path):
+def _detect_extractor(path: Path):  # type: ignore[no-untyped-def]
     """Return the appropriate extractor for the input file."""
     suffix = path.suffix.lower()
     if suffix == ".epub":

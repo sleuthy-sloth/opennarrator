@@ -4,8 +4,8 @@ import time
 import wave
 from pathlib import Path
 
-from piper.voice import PiperVoice
 from piper.config import SynthesisConfig
+from piper.voice import PiperVoice
 
 VOICES_DIR = Path("voices/en_US-lessac/en/en_US/lessac")
 OUTPUT_DIR = Path("output")

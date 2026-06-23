@@ -8,14 +8,14 @@ as the v0.1 OpenNarrator engine.
 Quality Gate: "Would you listen to a 10-hour audiobook in this voice?"
 """
 
+import json
 import os
 import sys
 import time
-import json
 from pathlib import Path
 
-import soundfile as sf
 import numpy as np
+import soundfile as sf
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

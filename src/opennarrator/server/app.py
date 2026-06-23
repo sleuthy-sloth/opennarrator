@@ -179,7 +179,7 @@ async def api_convert(request: Request) -> JSONResponse:
     upload_dir.mkdir(parents=True, exist_ok=True)
     input_path = upload_dir / str(file.filename)
 
-    content = await file.read()
+    content = await file.read()  # type: ignore[union-attr]
     input_path.write_bytes(content)
 
     # Speed is passed as a form field
@@ -345,15 +345,14 @@ def run(host: str = "127.0.0.1", port: int = 8080) -> None:
     Port is overridden by the PORT environment variable (used by Hugging
     Face Spaces and other cloud platforms).
     """
+    # Allow PORT env var override (HF Spaces, Render, Fly.io)
+    import contextlib
     import os
 
-    # Allow PORT env var override (HF Spaces, Render, Fly.io)
     env_port = os.environ.get("PORT")
     if env_port:
-        try:
+        with contextlib.suppress(ValueError, TypeError):
             port = int(env_port)
-        except (ValueError, TypeError):
-            pass
 
     import uvicorn
 

@@ -8,11 +8,11 @@ as the v0.1 OpenNarrator engine.
 Quality Gate: "Would you listen to a 10-hour audiobook in this voice?"
 """
 
+import json
 import os
 import sys
 import time
 import wave
-import json
 from pathlib import Path
 
 # Use the built-in reference voice from F5-TTS examples

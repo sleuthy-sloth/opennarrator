@@ -41,8 +41,9 @@ def bench(device, label, text, output_name):
     print(f"{'=' * 60}")
 
     # Import here so device switching is clean
-    from f5_tts.api import F5TTS
     import gc
+
+    from f5_tts.api import F5TTS
 
     t0 = time.perf_counter()
     model = F5TTS(device=device)

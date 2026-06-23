@@ -1,5 +1,7 @@
 """Top-level Typer CLI application."""
 
+from typing import Any
+
 import typer
 from typer.core import TyperGroup
 
@@ -12,7 +14,7 @@ from opennarrator.cli.voices import info, list_voices
 class _NaturalOrderGroup(TyperGroup):
     """Preserve command registration order in --help output."""
 
-    def list_commands(self, ctx):
+    def list_commands(self, ctx: Any) -> list[str]:
         return list(self.commands.keys())
 
 

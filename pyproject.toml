@@ -49,6 +49,7 @@ packages = ["src/opennarrator"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+exclude = ["spikes"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM"]
@@ -77,8 +78,11 @@ module = ["ebooklib.*", "pymupdf.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["opennarrator.config", "opennarrator.pipeline.extractor"]
+module = ["kokoro", "soundfile", "torch", "torch.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opennarrator.pipeline.extractor"]
 disable_error_code = [
   "attr-defined",
   "no-any-return",
@@ -86,10 +90,6 @@ disable_error_code = [
   "no-untyped-def",
   "no-untyped-call",
 ]
-
-[[tool.mypy.overrides]]
-module = ["ebooklib.*", "kokoro", "soundfile"]
-ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
