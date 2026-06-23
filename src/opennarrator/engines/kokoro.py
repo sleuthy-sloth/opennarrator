@@ -95,9 +95,7 @@ class KokoroEngine(BaseTTSEngine):
         except Exception as exc:
             raise SynthesisError(f"Failed to load Kokoro model: {exc}") from exc
 
-    def synthesize(
-        self, text: str, voice: str, output_path: Path, speed: float = 1.0
-    ) -> Path:
+    def synthesize(self, text: str, voice: str, output_path: Path, speed: float = 1.0) -> Path:
         """Synthesize text into a WAV file using Kokoro.
 
         Args:
@@ -140,9 +138,7 @@ class KokoroEngine(BaseTTSEngine):
             output_path.parent.mkdir(parents=True, exist_ok=True)
             sf.write(str(output_path), full_audio, SAMPLE_RATE)
         except OSError as exc:
-            raise SynthesisError(
-                f"Failed to write WAV to {output_path}: {exc}"
-            ) from exc
+            raise SynthesisError(f"Failed to write WAV to {output_path}: {exc}") from exc
 
         return output_path
 

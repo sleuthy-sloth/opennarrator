@@ -111,9 +111,7 @@ def _run_demo(voice: str, device: str | None, speed: float, keep_wavs: bool) -> 
     size_mb = final.stat().st_size / (1024 * 1024)
     console.print(f"\n[bold green]✅ Demo complete![/bold green] → {final.name} ({size_mb:.1f} MB)")
     console.print(f"  Open: [blue]open {final}[/blue]")
-    console.print(
-        "\n[dim]Now try it on a real book: opennarrator convert your-book.epub[/dim]"
-    )
+    console.print("\n[dim]Now try it on a real book: opennarrator convert your-book.epub[/dim]")
 
 
 def convert(
