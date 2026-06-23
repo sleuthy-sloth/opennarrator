@@ -80,7 +80,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["kokoro", "soundfile", "torch", "torch.*", "numpy", "numpy.*"]
 ignore_missing_imports = true
-follow_imports = "skip"
 
 [[tool.mypy.overrides]]
 module = ["fastapi", "fastapi.*", "sse_starlette.*", "uvicorn.*", "aiofiles"]
